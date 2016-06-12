@@ -4,6 +4,7 @@ from scipy.interpolate import Rbf
 from matplotlib import pylab as pl
 import matplotlib.pyplot as plt               #
 from matplotlib import rc,rcParams
+import matplotlib as mpl 
 from GP_scripts import *
 
 rc('text',usetex=True)
@@ -33,6 +34,195 @@ def get_angle(v,ax=1):
 
     return angle
 ####################################################################
+def plot4var(var1,var2,var3,var4,ds,title,text1,text2):
+   maxvar = np.max([var1.max(),var2.max(),var3.max(),var4.max()])
+   minvar = np.min([var1.min(),var2.min(),var3.min(),var4.min()])
+   figW = 20.
+   figH = 20.
+   FS = 30
+   FS2 = 20
+   fig = pl.figure(figsize=(figW,figH))
+   plot = fig.add_subplot(221)
+   plot.plot(ds,var1,'ob')
+   plot.set_ylim([minvar,maxvar])
+   titleText = plot.text(0.7, 1.05, '', transform=plot.transAxes,fontsize=FS,fontweight='bold')
+   titleText1 = plot.text(0.05, 0.9, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold')
+   titleText2 = plot.text(0.05, 0.8, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold')
+   titleText.set_text(title)
+   titleText1.set_text(text1[0])
+   titleText2.set_text(text2[0])
+   plot.tick_params(axis='both',which='major',labelsize=FS2)
+#   plot.set_title(title,fontsize = FS)
+   plot.set_ylabel('Absolute error',fontsize=FS)
+   #plot.set_xlabel('Distance to nearest observation',fontsize=FS)
+
+   plot = fig.add_subplot(222)
+   plot.plot(ds,var2,'or')
+   plot.set_ylim([minvar,maxvar])
+   titleText1 = plot.text(0.05, 0.9, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold')
+   titleText2 = plot.text(0.05, 0.8, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold')
+   titleText1.set_text(text1[1])
+   titleText2.set_text(text2[1])
+   plot.tick_params(axis='both',which='major',labelsize=FS2)
+#   plot.set_title(title,fontsize = FS)
+
+   plot = fig.add_subplot(223)
+   plot.plot(ds,var3,'og')
+   plot.set_ylim([minvar,maxvar])
+   titleText1 = plot.text(0.05, 0.9, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold')
+   titleText2 = plot.text(0.05, 0.8, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold')
+   titleText1.set_text(text1[2])
+   titleText2.set_text(text2[2])
+   plot.tick_params(axis='both',which='major',labelsize=FS2)
+#   plot.set_title(title,fontsize = FS)
+   plot.set_ylabel('Absolute error',fontsize=FS)
+   plot.set_xlabel('Distance to nearest obs.',fontsize=FS)
+
+   plot = fig.add_subplot(224)
+   plot.plot(ds,var4,'ok')
+   plot.set_ylim([minvar,maxvar])
+   titleText1 = plot.text(0.05, 0.9, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold')
+   titleText2 = plot.text(0.05, 0.8, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold')
+   titleText1.set_text(text1[3])
+   titleText2.set_text(text2[3])
+   plot.tick_params(axis='both',which='major',labelsize=FS2)
+#   plot.set_title(title,fontsize = FS)
+   plot.set_xlabel('Distance to nearest obs.',fontsize=FS)
+
+   pl.savefig('plots/'+title+'-scatter.png', bbox_inches=0)
+####################################################################
+def contour4var(var1,var2,var3,var4,x,y,xo,yo,title,text1,text2):
+   maxvar = np.max([var1.max(),var2.max(),var3.max(),var4.max()])
+   minvar = np.min([var1.min(),var2.min(),var3.min(),var4.min()])
+   dv = (maxvar-minvar)/30.
+   V = np.arange(minvar,maxvar+dv,dv)
+
+   var1 = np.reshape(var1,[x.size,-1])
+   var2 = np.reshape(var2,[x.size,-1])
+   var3 = np.reshape(var3,[x.size,-1])
+   var4 = np.reshape(var4,[x.size,-1])
+
+   figW = 20.
+   figH = 20.
+   FS = 42
+   FS2 = 20
+   fig = plt.figure(figsize=(figW,figH))
+   plot = fig.add_subplot(221)
+   cs=plot.contourf(x,y,var1,V)
+   plot.plot(xo,yo,'ok')
+   titleText = plot.text(0.7, 1.05, '', transform=plot.transAxes,fontsize=FS,fontweight='bold')
+   titleText1 = plot.text(0.05, 0.9, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='w')
+   titleText2 = plot.text(0.05, 0.8, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='w')
+   titleText.set_text(title)
+   titleText1.set_text(text1[0])
+   titleText2.set_text(text2[0])
+   plot.tick_params(axis='both',which='major',labelsize=FS2)
+#   plot.set_title(title,fontsize = FS)
+
+   plot = fig.add_subplot(222)
+   cs=plot.contourf(x,y,var2,V)
+   plot.plot(xo,yo,'ok')
+   titleText1 = plot.text(0.05, 0.9, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='w')
+   titleText2 = plot.text(0.05, 0.8, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='w')
+   titleText1.set_text(text1[1])
+   titleText2.set_text(text2[1])
+   plot.tick_params(axis='both',which='major',labelsize=FS2)
+#   plot.set_title(title,fontsize = FS)
+
+   plot = fig.add_subplot(223)
+   cs=plot.contourf(x,y,var3,V)
+   plot.plot(xo,yo,'ok')
+   titleText1 = plot.text(0.05, 0.9, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='w')
+   titleText2 = plot.text(0.05, 0.8, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='w')
+   titleText1.set_text(text1[2])
+   titleText2.set_text(text2[2])
+   plot.tick_params(axis='both',which='major',labelsize=FS2)
+#   plot.set_title(title,fontsize = FS)
+
+   plot = fig.add_subplot(224)
+   cs = plot.contourf(x,y,var4,V)
+   plot.plot(xo,yo,'ok')
+   titleText1 = plot.text(0.05, 0.9, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='w')
+   titleText2 = plot.text(0.05, 0.8, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='w')
+   titleText1.set_text(text1[3])
+   titleText2.set_text(text2[3])
+   plot.tick_params(axis='both',which='major',labelsize=FS2)
+#   plot.set_title(title,fontsize = FS)
+
+## INDEPENDENT COLORBAR
+   axbar = fig.add_axes([0.92, 0.1, 0.02, 0.8])
+   cb = mpl.colorbar.ColorbarBase(axbar, orientation = 'vertical', boundaries = V)
+#   cb.set_ticks(np.arange(0,1,0.15))
+   cb.ax.tick_params(labelsize = FS2)
+
+   pl.savefig('plots/'+title+'-contour.png', bbox_inches=0)
+#########################################################################
+def quiver4var(u1,v1,u2,v2,u3,v3,u4,v4,x,y,xo,yo,title,text1,text2):
+
+#   var1 = np.reshape(var1,[x.size,-1])
+#   var2 = np.reshape(var2,[x.size,-1])
+#   var3 = np.reshape(var3,[x.size,-1])
+#   var4 = np.reshape(var4,[x.size,-1])
+
+   figW = 20.
+   figH = 20.
+   FS = 42
+   FS2 = 20
+   scale = 1
+   left = [0.05,0.5]
+   bottom = [0.05,0.5]
+   width = 0.4
+   height = 0.4
+
+   fig = pl.figure(figsize=(figW,figH))
+   plot = fig.add_subplot(221)
+#   plot=fig.add_axes([left[0],bottom[1],width,height])
+   cs=plot.quiver(x,y,u1,v1,scale=sc)
+   plot.plot(xo,yo,'or')
+   titleText = plot.text(0.7, 1.05, '', transform=plot.transAxes,fontsize=FS,fontweight='bold')
+   titleText1 = plot.text(0.05, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText2 = plot.text(0.45, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText.set_text(title)
+   titleText1.set_text(text1[0])
+   titleText2.set_text(text2[0])
+   plot.tick_params(axis='both',which='major',labelsize=FS2)
+#   plot.set_title(title,fontsize = FS)
+
+   plot = fig.add_subplot(222)
+#   plot=fig.add_axes([left[1],bottom[1],width,height])
+   cs=plot.quiver(x,y,u2,v2,scale=sc)
+   plot.plot(xo,yo,'or')
+   titleText1 = plot.text(0.05, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText2 = plot.text(0.45, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText1.set_text(text1[1])
+   titleText2.set_text(text2[1])
+   plot.tick_params(axis='both',which='major',labelsize=FS2)
+#   plot.set_title(title,fontsize = FS)
+
+   plot = fig.add_subplot(223)
+#   plot=fig.add_axes([left[0],bottom[0],width,height])
+   cs=plot.quiver(x,y,u3,v3,scale=sc)
+   plot.plot(xo,yo,'or')
+   titleText1 = plot.text(0.05, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText2 = plot.text(0.45, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText1.set_text(text1[2])
+   titleText2.set_text(text2[2])
+   plot.tick_params(axis='both',which='major',labelsize=FS2)
+#   plot.set_title(title,fontsize = FS)
+
+   plot = fig.add_subplot(224)
+#   plot=fig.add_axes([left[1],bottom[0],width,height])
+   cs=plot.quiver(x,y,u4,v4,scale=sc)
+   plot.plot(xo,yo,'or')
+   titleText1 = plot.text(0.05, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText2 = plot.text(0.45, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText1.set_text(text1[3])
+   titleText2.set_text(text2[3])
+   plot.tick_params(axis='both',which='major',labelsize=FS2)
+#   plot.set_title(title,fontsize = FS)
+
+#   pl.savefig('plots/'+title+'quiver.png', bbox_inches=0)
+#####################################################################
 def run_example(divFree = 1):
    x,y,phi,xm,ym,um,vm = generate_2D_gaussian(divFree)
    
@@ -55,25 +245,31 @@ def run_example(divFree = 1):
    X1s,X2s=np.meshgrid(x1s,x2s)   
    X1s = np.reshape(X1s,[X1s.size])
    X2s = np.reshape(X2s,[X2s.size])
-
+ 
    K1 = compute_K(x1,x2,0.2,divFree)
    Ki1 = np.linalg.inv(K1)
    KS1 = compute_Ks(x1,x2,X1s,X2s,0.2,divFree)
    f1 = getMean(KS1,Ki1,y)
+   u1 = np.reshape(f1[:f1.size/2],[x2s.size,-1])
+   v1 = np.reshape(f1[f1.size/2:],[x2s.size,-1])
 
    K2 = compute_K(x1,x2,0.3,divFree)
    Ki2 = np.linalg.inv(K2)
    KS2 = compute_Ks(x1,x2,X1s,X2s,0.3,divFree)
    f2 = getMean(KS2,Ki2,y)
+   u2 = np.reshape(f2[:f2.size/2],[x2s.size,-1])
+   v2 = np.reshape(f2[f2.size/2:],[x2s.size,-1])
 
    K3 = compute_K(x1,x2,0.4,divFree)
    Ki3 = np.linalg.inv(K3)
    KS3 = compute_Ks(x1,x2,X1s,X2s,0.4,divFree)
    f3 = getMean(KS3,Ki3,y)
+   u3 = np.reshape(f3[:f3.size/2],[x2s.size,-1])
+   v3 = np.reshape(f3[f3.size/2:],[x2s.size,-1])
 
-   K4 = sqExp(x1,x2,x1,x2,0.3)
+   K4 = sqExp(x1,x2,x1,x2,0.4)
    Ki4 = np.linalg.inv(K4)
-   KS4 = sqExp(X1s,X2s,x1,x2,0.3)
+   KS4 = sqExp(X1s,X2s,x1,x2,0.4)
    u4 = np.dot(KS4,np.dot(Ki4,y1)) #getMean(KS4,Ki4,y1)
    u4 = np.reshape(u4,[x2s.size,-1])
    v4 = np.dot(KS4,np.dot(Ki4,y2)) #getMean(KS4,Ki4,y2)
@@ -105,66 +301,44 @@ def run_example(divFree = 1):
    angle1 =  get_angle(np.array([f1[:f1.size/2],f1[f1.size/2:]]).T)
    err_vel1,ds = absoluteError(absVel,absVel1,X1s,X2s,x1,x2)
    err_ang1,ds = absoluteError(angle,angle1,X1s,X2s,x1,x2)
+   err_ang1[np.where(err_ang1>180)]=360-err_ang1[np.where(err_ang1>180)]
 
    absVel2 = np.sqrt(np.square(f2[:f2.size/2])+np.square(f2[f2.size/2:]))   
    angle2 =  get_angle(np.array([f2[:f2.size/2],f2[f2.size/2:]]).T)
    err_vel2,ds = absoluteError(absVel,absVel2,X1s,X2s,x1,x2)
    err_ang2,ds = absoluteError(angle,angle2,X1s,X2s,x1,x2)
+   err_ang2[np.where(err_ang2>180)]=360-err_ang2[np.where(err_ang2>180)]
 
    absVel3 = np.sqrt(np.square(f3[:f3.size/2])+np.square(f3[f3.size/2:]))   
    angle3 =  get_angle(np.array([f3[:f3.size/2],f3[f3.size/2:]]).T)
    err_vel3,ds = absoluteError(absVel,absVel3,X1s,X2s,x1,x2)
    err_ang3,ds = absoluteError(angle,angle3,X1s,X2s,x1,x2)
+   err_ang3[np.where(err_ang3>180)]=360-err_ang3[np.where(err_ang3>180)]
 
    absVel4 = np.sqrt(np.square(np.reshape(u4,[u4.size]))+np.square(np.reshape(v4,[v4.size])))   
    angle4 =  get_angle(np.array([np.reshape(u4,[u4.size]),np.reshape(v4,[v4.size])]).T)
    err_vel4,ds = absoluteError(absVel,absVel4,X1s,X2s,x1,x2)
    err_ang4,ds = absoluteError(angle,angle4,X1s,X2s,x1,x2)
+   err_ang4[np.where(err_ang4>180)]=360-err_ang4[np.where(err_ang4>180)]
 
-   figW = 20.
-   figH = 20.
-   FS = 42
-   FS2 = 20
-   fig = pl.figure(figsize=(figW,figH))
-   plot = fig.add_subplot(221)
-   plot.plot(ds,err_u1,'ob',ds,err_u2,'or',ds,err_u3,'og',ds,err_u4,'ok')
-   plt.legend(('div-free, $\sigma=0.1$','div-free, $\sigma=0.3$', 
-     'div-free, $\sigma=0.4$','squared exp., $\sigma=0.3$'),
-      fontsize=FS2,loc=1)
-   plot.tick_params(axis='both',which='major',labelsize=FS2)
-   plot.set_title('Zonal component',fontsize = FS)
-   plot.set_ylabel('Absolute error',fontsize=FS)
-   #plot.set_xlabel('Distance to nearest observation',fontsize=FS)
+   text1 = np.array(['Div-free Kernel','Div-free kernel','Div-free kernel','Isotropic kernel'])
+   text2 = np.array(['$\sigma=0.2$','$\sigma=0.3$','$\sigma=0.4$','$\sigma=0.4$'])
+   
+   plot4var(err_u1,err_u2,err_u3,err_u4,ds,'Absolute-Error-U',text1,text2)
+   plot4var(err_v1,err_v2,err_v3,err_v4,ds,'Absolute-Error-V',text1,text2)
+   plot4var(err_vel1,err_vel2,err_vel3,err_vel4,ds,'Absolute-Error-Speed',text1,text2)
+   plot4var(err_ang1,err_ang2,err_ang3,err_ang4,ds,'Absolute-Error-Angle',text1,text2)
 
-   plot = fig.add_subplot(222)
-   plot.plot(ds,err_v1,'ob',ds,err_v2,'or',ds,err_v3,'og',ds,err_v4,'ok')
-#   plt.legend(('div-free covariance, $\sigma=0.1$','div-free covariance, $\sigma=0.3$', 
-#     'div-free covariance, $\sigma=0.4$','squared exponential covariance, $\sigma=0.3$'),
-#      fontsize=FS2,loc=2)
-   plot.tick_params(axis='both',which='major',labelsize=FS2)
-   plot.set_title('Meridional component',fontsize = FS)
-#   plot.set_ylabel('Absolute error',fontsize=FS)
-#   plot.set_xlabel('Distance to nearest observation',fontsize=FS)
-
-   plot = fig.add_subplot(223)
-   plot.plot(ds,err_vel1,'ob',ds,err_vel2,'or',ds,err_vel3,'og',ds,err_vel4,'ok')
-#   plt.legend(('div-free covariance, $\sigma=0.1$','div-free covariance, $\sigma=0.3$', 
-#     'div-free covariance, $\sigma=0.4$','squared exponential covariance, $\sigma=0.3$'),
-#      fontsize=FS2,loc=2)
-   plot.tick_params(axis='both',which='major',labelsize=FS2)
-   plot.set_title('Absolute velocity',fontsize = FS)
-   plot.set_ylabel('Absolute error',fontsize=FS)
-   plot.set_xlabel('Distance to nearest observation',fontsize=FS)
-
-   plot = fig.add_subplot(224)
-   plot.plot(ds,err_ang1,'ob',ds,err_ang2,'or',ds,err_ang3,'og',ds,err_ang4,'ok')
-#   plt.legend(('div-free, $\sigma=0.1$','div-free, $\sigma=0.3$', 
-#     'div-free, $\sigma=0.4$','squared exp., $\sigma=0.3$'),
-#      fontsize=FS2,loc=4)
-   plot.tick_params(axis='both',which='major',labelsize=FS2)
-   plot.set_title('Angle',fontsize = FS)
-#   plot.set_ylabel('Absolute error',fontsize=FS)
-   plot.set_xlabel('Distance to nearest observation',fontsize=FS)
+   contour4var(err_u1,err_u2,err_u3,err_u4,x1s,x2s,x1,x2,'Absolute-Error-U',text1,text2)
+   contour4var(err_v1,err_v2,err_v3,err_v4,x1s,x2s,x1,x2,'Absolute-Error-V',text1,text2)
+   contour4var(err_vel1,err_vel2,err_vel3,err_vel4,x1s,x2s,x1,x2,'Absolute-Error-Speed',text1,text2)
+   contour4var(err_ang1,err_ang2,err_ang3,err_ang4,x1s,x2s,x1,x2,'Absolute-Error-Angle',text1,text2)
+   
+   um = np.reshape(um,[xm.size,-1])
+   vm = np.reshape(vm,[xm.size,-1])
+   return x1s,x2s,u1,v1,u2,v2,u3,v3,u4,v4,um,vm,x1,x2 
+#   quiver4var(u1-um,v1-vm,u2-um,v2-vm,u3-um,v3-vm,u4-um,v4-vm,X1s,X2s,x1,x2,'Velocity Error',text1,text2)
+#   quiver4var(u1,v1,u2,v2,u3,v3,u4,v4,X1s,X2s,x1,x2,'Velocity vectors',text1,text2)
 
 #   plot=fig.add_subplot(221)
 #   plot.quiver(X1,X2,um,vm,scale = 1)

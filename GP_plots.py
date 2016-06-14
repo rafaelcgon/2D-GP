@@ -168,7 +168,7 @@ def quiver4var(u1,v1,u2,v2,u3,v3,u4,v4,x,y,xo,yo,title,text1,text2):
    figH = 20.
    FS = 42
    FS2 = 20
-   scale = 1
+   scal = 1
    left = [0.05,0.5]
    bottom = [0.05,0.5]
    width = 0.4
@@ -177,7 +177,7 @@ def quiver4var(u1,v1,u2,v2,u3,v3,u4,v4,x,y,xo,yo,title,text1,text2):
    fig = pl.figure(figsize=(figW,figH))
    plot = fig.add_subplot(221)
 #   plot=fig.add_axes([left[0],bottom[1],width,height])
-   cs=plot.quiver(x,y,u1,v1,scale=sc)
+   cs=plot.quiver(x,y,u1,v1,scale=scal)
    plot.plot(xo,yo,'or')
    titleText = plot.text(0.7, 1.05, '', transform=plot.transAxes,fontsize=FS,fontweight='bold')
    titleText1 = plot.text(0.05, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
@@ -190,7 +190,7 @@ def quiver4var(u1,v1,u2,v2,u3,v3,u4,v4,x,y,xo,yo,title,text1,text2):
 
    plot = fig.add_subplot(222)
 #   plot=fig.add_axes([left[1],bottom[1],width,height])
-   cs=plot.quiver(x,y,u2,v2,scale=sc)
+   cs=plot.quiver(x,y,u2,v2,scale=scal)
    plot.plot(xo,yo,'or')
    titleText1 = plot.text(0.05, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
    titleText2 = plot.text(0.45, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
@@ -201,7 +201,7 @@ def quiver4var(u1,v1,u2,v2,u3,v3,u4,v4,x,y,xo,yo,title,text1,text2):
 
    plot = fig.add_subplot(223)
 #   plot=fig.add_axes([left[0],bottom[0],width,height])
-   cs=plot.quiver(x,y,u3,v3,scale=sc)
+   cs=plot.quiver(x,y,u3,v3,scale=scal)
    plot.plot(xo,yo,'or')
    titleText1 = plot.text(0.05, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
    titleText2 = plot.text(0.45, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
@@ -212,7 +212,7 @@ def quiver4var(u1,v1,u2,v2,u3,v3,u4,v4,x,y,xo,yo,title,text1,text2):
 
    plot = fig.add_subplot(224)
 #   plot=fig.add_axes([left[1],bottom[0],width,height])
-   cs=plot.quiver(x,y,u4,v4,scale=sc)
+   cs=plot.quiver(x,y,u4,v4,scale=scal)
    plot.plot(xo,yo,'or')
    titleText1 = plot.text(0.05, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
    titleText2 = plot.text(0.45, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
@@ -455,7 +455,7 @@ def twoVectors(sigma = 0.2):
    figH = 20.
    FS = 42
    FS2 = 20
-   scale = 1.
+   scal = 30.
 #
    dx = 0.05
    x = np.arange(-1,1+dx,dx)
@@ -475,8 +475,8 @@ def twoVectors(sigma = 0.2):
    absVel = np.array([0.5,1,2])
 #
    for i in range(angle.size):
-      fig = plt.figure(figsize=(figW,figH))
-      jk=0
+      fig = pl.figure(figsize=(figW,figH))
+      jk=1
       filename = 'plots/2_vectors_angle_'+str(angle[i])+'.png'
       for j in range(absVel.size):
          uo2 = absVel[j]*np.cos(np.deg2rad(angle[i]))   
@@ -496,20 +496,25 @@ def twoVectors(sigma = 0.2):
             uf = np.reshape(f[:f.size/2],[y.size,-1])
             vf = np.reshape(f[f.size/2:],[y.size,-1])
             # plot
+            print jk
+            print i,j,k
             plot = fig.add_subplot(3,3,jk)
-            pl.quiver(X,Y,uf,vf)#,scale=sc)
-            pl.quiver(xo,yo,uo,vo,color='r')
-            plot.set_xlim([-0.6,1])
-            plot.set_ylim([-0.6,1])
+            plot.quiver(X,Y,uf,vf,scale=scal)
+            pl.quiver(xo,yo,uo,vo,scale=scal,color='r')
+            plot.set_xlim([-0.6,0.8])
+            plot.set_ylim([-0.6,0.8])
 #            titleText = plot.text(0.7, 1.05, '',transform=plot.transAxes,
 #                               fontsize=FS,fontweight='bold')
-#            titleText1 = plot.text(0.05, 0.9, '',transform=plot.transAxes,
-#                               fontsize=FS2,fontweight='bold',color='w')
-#            titleText2 = plot.text(0.05, 0.8, '',transform=plot.transAxes,
-#                               fontsize=FS2,fontweight='bold',color='w')
-#            titleText.set_text(title)
-#            titleText1.set_text(text1[0])
-#            titleText2.set_text(text2[0])
+            titleText1 = plot.text(0.05, 0.9, '',transform=plot.transAxes,
+                               fontsize=FS2+5,fontweight='bold',color='b')
+            titleText2 = plot.text(0.03, 0.03, '',transform=plot.transAxes,
+                               fontsize=FS2+5,fontweight='bold',color='b')
+            titleText3 = plot.text(0.54, 0.03, '',transform=plot.transAxes,
+                               fontsize=FS2+5,fontweight='bold',color='b')
+            titleText1.set_text('$\Theta='+str(angle[i])+'$')
+            titleText2.set_text('$|v_2|='+str(absVel[j])+'$')
+            dx2= np.round(np.sqrt(np.square(xo1-xo2[k])+np.square(yo1-yo2[k])),decimals=2)
+            titleText3.set_text('$|x_2-x_1|='+str(dx2)+'$')
             plot.tick_params(axis='both',which='major',labelsize=FS2)
             jk+=1
       pl.savefig(filename, bbox_inches=0)

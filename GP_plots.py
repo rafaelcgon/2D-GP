@@ -448,12 +448,68 @@ def singleVector():
    f1 = gp.getMean(Ks1,Ki1,ob)
    u1 = np.reshape(f1[0:f1.size/2],[x.size,-1])
    v1 = np.reshape(f1[f1.size/2:],[x.size,-1])
-
-
-
-
-
-
-
-
-
+###############################################################################
+def twoVectors(sigma = 0.2):
+#
+   figW = 20.
+   figH = 20.
+   FS = 42
+   FS2 = 20
+   scale = 1.
+#
+   dx = 0.05
+   x = np.arange(-1,1+dx,dx)
+   y = np.arange(-1,1+dx,dx)
+   X,Y = np.meshgrid(x,y)
+   Xs = np.reshape(X,[X.size])
+   Ys = np.reshape(Y,[Y.size])   
+# observation 1, at origin
+   xo1 = 0.
+   yo1 = 0.
+   uo1 = 1.
+   vo1 = 0.
+# observation 2, varying direction, intensity and location
+   xo2 = np.array([0.07,0.14,0.28])
+   yo2 = np.array([0.07,0.14,0.28])
+   angle = np.array([45,90,180])
+   absVel = np.array([0.5,1,2])
+#
+   for i in range(angle.size):
+      fig = plt.figure(figsize=(figW,figH))
+      jk=0
+      filename = 'plots/2_vectors_angle_'+str(angle[i])+'.png'
+      for j in range(absVel.size):
+         uo2 = absVel[j]*np.cos(np.deg2rad(angle[i]))   
+         vo2 = absVel[j]*np.sin(np.deg2rad(angle[i]))   
+         uo = np.array([uo1,uo2])
+         vo = np.array([vo1,vo2])
+         ob = np.concatenate([uo,vo])
+         ob = np.reshape(ob,[ob.size,1])
+         for k in range(xo2.size):
+            xo = np.array([xo1,xo2[k]])
+            yo = np.array([yo1,yo2[k]])
+            # compute kernel    
+            K = compute_K(xo,yo,sigma)
+            Ki = np.linalg.inv(K)
+            Ks = compute_Ks(xo,yo,Xs,Ys,sigma)
+            f = getMean(Ks,Ki,ob)
+            uf = np.reshape(f[:f.size/2],[y.size,-1])
+            vf = np.reshape(f[f.size/2:],[y.size,-1])
+            # plot
+            plot = fig.add_subplot(3,3,jk)
+            pl.quiver(X,Y,uf,vf)#,scale=sc)
+            pl.quiver(xo,yo,uo,vo,color='r')
+            plot.set_xlim([-0.6,1])
+            plot.set_ylim([-0.6,1])
+#            titleText = plot.text(0.7, 1.05, '',transform=plot.transAxes,
+#                               fontsize=FS,fontweight='bold')
+#            titleText1 = plot.text(0.05, 0.9, '',transform=plot.transAxes,
+#                               fontsize=FS2,fontweight='bold',color='w')
+#            titleText2 = plot.text(0.05, 0.8, '',transform=plot.transAxes,
+#                               fontsize=FS2,fontweight='bold',color='w')
+#            titleText.set_text(title)
+#            titleText1.set_text(text1[0])
+#            titleText2.set_text(text2[0])
+            plot.tick_params(axis='both',which='major',labelsize=FS2)
+            jk+=1
+      pl.savefig(filename, bbox_inches=0)

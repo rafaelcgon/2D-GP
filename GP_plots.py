@@ -39,15 +39,15 @@ def plot4var(var1,var2,var3,var4,ds,title,text1,text2):
    minvar = np.min([var1.min(),var2.min(),var3.min(),var4.min()])
    figW = 20.
    figH = 20.
-   FS = 30
-   FS2 = 20
+   FS = 42
+   FS2 = 35
    fig = pl.figure(figsize=(figW,figH))
    plot = fig.add_subplot(221)
    plot.plot(ds,var1,'ob')
    plot.set_ylim([minvar,maxvar])
-   titleText = plot.text(0.7, 1.05, '', transform=plot.transAxes,fontsize=FS,fontweight='bold')
-   titleText1 = plot.text(0.05, 0.9, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold')
-   titleText2 = plot.text(0.05, 0.8, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold')
+   titleText = plot.text(0.8, 1.1, '', transform=plot.transAxes,fontsize=FS,fontweight='bold')
+   titleText1 = plot.text(0.05, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText2 = plot.text(0.6, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
    titleText.set_text(title)
    titleText1.set_text(text1[0])
    titleText2.set_text(text2[0])
@@ -59,8 +59,8 @@ def plot4var(var1,var2,var3,var4,ds,title,text1,text2):
    plot = fig.add_subplot(222)
    plot.plot(ds,var2,'or')
    plot.set_ylim([minvar,maxvar])
-   titleText1 = plot.text(0.05, 0.9, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold')
-   titleText2 = plot.text(0.05, 0.8, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold')
+   titleText1 = plot.text(0.05, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText2 = plot.text(0.6, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
    titleText1.set_text(text1[1])
    titleText2.set_text(text2[1])
    plot.tick_params(axis='both',which='major',labelsize=FS2)
@@ -69,8 +69,8 @@ def plot4var(var1,var2,var3,var4,ds,title,text1,text2):
    plot = fig.add_subplot(223)
    plot.plot(ds,var3,'og')
    plot.set_ylim([minvar,maxvar])
-   titleText1 = plot.text(0.05, 0.9, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold')
-   titleText2 = plot.text(0.05, 0.8, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold')
+   titleText1 = plot.text(0.05, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText2 = plot.text(0.6, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
    titleText1.set_text(text1[2])
    titleText2.set_text(text2[2])
    plot.tick_params(axis='both',which='major',labelsize=FS2)
@@ -81,8 +81,8 @@ def plot4var(var1,var2,var3,var4,ds,title,text1,text2):
    plot = fig.add_subplot(224)
    plot.plot(ds,var4,'ok')
    plot.set_ylim([minvar,maxvar])
-   titleText1 = plot.text(0.05, 0.9, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold')
-   titleText2 = plot.text(0.05, 0.8, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold')
+   titleText1 = plot.text(0.05, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText2 = plot.text(0.6, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
    titleText1.set_text(text1[3])
    titleText2.set_text(text2[3])
    plot.tick_params(axis='both',which='major',labelsize=FS2)
@@ -94,7 +94,7 @@ def plot4var(var1,var2,var3,var4,ds,title,text1,text2):
 def contour4var(var1,var2,var3,var4,x,y,xo,yo,title,text1,text2):
    maxvar = np.max([var1.max(),var2.max(),var3.max(),var4.max()])
    minvar = np.min([var1.min(),var2.min(),var3.min(),var4.min()])
-   dv = (maxvar-minvar)/30.
+   dv = (maxvar-minvar)/32.
    V = np.arange(minvar,maxvar+dv,dv)
 
    var1 = np.reshape(var1,[x.size,-1])
@@ -103,56 +103,66 @@ def contour4var(var1,var2,var3,var4,x,y,xo,yo,title,text1,text2):
    var4 = np.reshape(var4,[x.size,-1])
 
    figW = 20.
-   figH = 20.
+   figH = 14.
+   bottom = [0.51,0.04]
+   height = 0.4
+   left = [0.04,0.5]
+   width = 0.4
+
    FS = 42
-   FS2 = 20
+   FS2 = 35
    fig = plt.figure(figsize=(figW,figH))
-   plot = fig.add_subplot(221)
+#   plot = fig.add_subplot(221)
+   plot=fig.add_axes([left[0],bottom[0],width,height])
    cs=plot.contourf(x,y,var1,V)
-   plot.plot(xo,yo,'ok')
-   titleText = plot.text(0.7, 1.05, '', transform=plot.transAxes,fontsize=FS,fontweight='bold')
-   titleText1 = plot.text(0.05, 0.9, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='w')
-   titleText2 = plot.text(0.05, 0.8, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='w')
+   plot.plot(xo,yo,'ow',ms = 12)
+   titleText = plot.text(0.8, 1.1, '', transform=plot.transAxes,fontsize=FS,fontweight='bold')
+   titleText1 = plot.text(0.05, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText2 = plot.text(0.6, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
    titleText.set_text(title)
    titleText1.set_text(text1[0])
    titleText2.set_text(text2[0])
    plot.tick_params(axis='both',which='major',labelsize=FS2)
 #   plot.set_title(title,fontsize = FS)
 
-   plot = fig.add_subplot(222)
+#   plot = fig.add_subplot(222)
+   plot=fig.add_axes([left[1],bottom[0],width,height])
    cs=plot.contourf(x,y,var2,V)
-   plot.plot(xo,yo,'ok')
-   titleText1 = plot.text(0.05, 0.9, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='w')
-   titleText2 = plot.text(0.05, 0.8, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='w')
+   plot.plot(xo,yo,'ow',ms = 12)
+   titleText1 = plot.text(0.05, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText2 = plot.text(0.6, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
    titleText1.set_text(text1[1])
    titleText2.set_text(text2[1])
    plot.tick_params(axis='both',which='major',labelsize=FS2)
 #   plot.set_title(title,fontsize = FS)
 
-   plot = fig.add_subplot(223)
+#   plot = fig.add_subplot(223)
+   plot=fig.add_axes([left[0],bottom[1],width,height])
    cs=plot.contourf(x,y,var3,V)
-   plot.plot(xo,yo,'ok')
-   titleText1 = plot.text(0.05, 0.9, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='w')
-   titleText2 = plot.text(0.05, 0.8, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='w')
+   plot.plot(xo,yo,'ow',ms = 12)
+   titleText1 = plot.text(0.05, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText2 = plot.text(0.6, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
    titleText1.set_text(text1[2])
    titleText2.set_text(text2[2])
    plot.tick_params(axis='both',which='major',labelsize=FS2)
 #   plot.set_title(title,fontsize = FS)
 
-   plot = fig.add_subplot(224)
+#   plot = fig.add_subplot(224)
+   plot=fig.add_axes([left[1],bottom[1],width,height])
    cs = plot.contourf(x,y,var4,V)
-   plot.plot(xo,yo,'ok')
-   titleText1 = plot.text(0.05, 0.9, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='w')
-   titleText2 = plot.text(0.05, 0.8, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='w')
+   plot.plot(xo,yo,'ow',ms = 12)
+   titleText1 = plot.text(0.05, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText2 = plot.text(0.6, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
    titleText1.set_text(text1[3])
    titleText2.set_text(text2[3])
    plot.tick_params(axis='both',which='major',labelsize=FS2)
 #   plot.set_title(title,fontsize = FS)
 
 ## INDEPENDENT COLORBAR
-   axbar = fig.add_axes([0.92, 0.1, 0.02, 0.8])
+   axbar = fig.add_axes([0.91, 0.1, 0.02, 0.8])
    cb = mpl.colorbar.ColorbarBase(axbar, orientation = 'vertical', boundaries = V)
-#   cb.set_ticks(np.arange(0,1,0.15))
+   Vs = np.round(V[::4],decimals=3)
+   cb.set_ticks(Vs)
    cb.ax.tick_params(labelsize = FS2)
 
    pl.savefig('plots/'+title+'-contour.png', bbox_inches=0)
@@ -164,66 +174,66 @@ def quiver4var(u1,v1,u2,v2,u3,v3,u4,v4,x,y,xo,yo,title,text1,text2):
 #   var3 = np.reshape(var3,[x.size,-1])
 #   var4 = np.reshape(var4,[x.size,-1])
 
-   figW = 20.
-   figH = 20.
    FS = 42
-   FS2 = 20
+   FS2 = 35
    scal = 1
-   left = [0.05,0.5]
-   bottom = [0.05,0.5]
-   width = 0.4
-   height = 0.4
+   figW = 20.
+   figH = 19.
+   bottom = [0.51,0.04]
+   height = 0.41
+   left = [0.06,0.54]
+   width = 0.41
 
    fig = pl.figure(figsize=(figW,figH))
-   plot = fig.add_subplot(221)
-#   plot=fig.add_axes([left[0],bottom[1],width,height])
+#   plot = fig.add_subplot(221)
+   plot=fig.add_axes([left[0],bottom[0],width,height])
    cs=plot.quiver(x,y,u1,v1,scale=scal)
-   plot.plot(xo,yo,'or')
-   titleText = plot.text(0.7, 1.05, '', transform=plot.transAxes,fontsize=FS,fontweight='bold')
-   titleText1 = plot.text(0.05, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
-   titleText2 = plot.text(0.45, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   plot.plot(xo,yo,'or',ms = 15)
+   titleText = plot.text(0.85, 1.1, '', transform=plot.transAxes,fontsize=FS,fontweight='bold')
+   titleText1 = plot.text(0.05, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText2 = plot.text(0.6, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
    titleText.set_text(title)
    titleText1.set_text(text1[0])
    titleText2.set_text(text2[0])
    plot.tick_params(axis='both',which='major',labelsize=FS2)
 #   plot.set_title(title,fontsize = FS)
 
-   plot = fig.add_subplot(222)
-#   plot=fig.add_axes([left[1],bottom[1],width,height])
+#   plot = fig.add_subplot(222)
+   plot=fig.add_axes([left[1],bottom[0],width,height])
    cs=plot.quiver(x,y,u2,v2,scale=scal)
-   plot.plot(xo,yo,'or')
-   titleText1 = plot.text(0.05, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
-   titleText2 = plot.text(0.45, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   plot.plot(xo,yo,'or',ms = 15)
+   titleText1 = plot.text(0.05, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText2 = plot.text(0.6, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
    titleText1.set_text(text1[1])
    titleText2.set_text(text2[1])
    plot.tick_params(axis='both',which='major',labelsize=FS2)
 #   plot.set_title(title,fontsize = FS)
 
-   plot = fig.add_subplot(223)
-#   plot=fig.add_axes([left[0],bottom[0],width,height])
+#   plot = fig.add_subplot(223)
+   plot=fig.add_axes([left[0],bottom[1],width,height])
    cs=plot.quiver(x,y,u3,v3,scale=scal)
-   plot.plot(xo,yo,'or')
-   titleText1 = plot.text(0.05, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
-   titleText2 = plot.text(0.45, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   plot.plot(xo,yo,'or',ms = 15)
+   titleText1 = plot.text(0.05, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText2 = plot.text(0.6, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
    titleText1.set_text(text1[2])
    titleText2.set_text(text2[2])
    plot.tick_params(axis='both',which='major',labelsize=FS2)
 #   plot.set_title(title,fontsize = FS)
 
-   plot = fig.add_subplot(224)
-#   plot=fig.add_axes([left[1],bottom[0],width,height])
+#   plot = fig.add_subplot(224)
+   plot=fig.add_axes([left[1],bottom[1],width,height])
    cs=plot.quiver(x,y,u4,v4,scale=scal)
-   plot.plot(xo,yo,'or')
-   titleText1 = plot.text(0.05, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
-   titleText2 = plot.text(0.45, 1., '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   plot.plot(xo,yo,'or',ms = 15)
+   titleText1 = plot.text(0.05, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
+   titleText2 = plot.text(0.6, 1.01, '', transform=plot.transAxes,fontsize=FS2,fontweight='bold',color='k')
    titleText1.set_text(text1[3])
    titleText2.set_text(text2[3])
    plot.tick_params(axis='both',which='major',labelsize=FS2)
 #   plot.set_title(title,fontsize = FS)
 
-#   pl.savefig('plots/'+title+'quiver.png', bbox_inches=0)
+   pl.savefig('plots/'+title+'quiver.png', bbox_inches=0)
 #####################################################################
-def run_example(divFree = 1):
+def run_example(nsamples = 5,divFree = 1):
    x,y,phi,xm,ym,um,vm = generate_2D_gaussian(divFree)
    
    X1,X2=np.meshgrid(xm,ym)
@@ -232,7 +242,8 @@ def run_example(divFree = 1):
    um = np.reshape(um,[-1])
    vm = np.reshape(vm,[-1])
 # generate random samples
-   samples = np.random.randint(0,X1.size,20)
+   
+   samples = np.random.randint(0,X1.size,nsamples)
    x1 = X1[samples]
    x2 = X2[samples]
    y1 = um[samples]
@@ -245,31 +256,32 @@ def run_example(divFree = 1):
    X1s,X2s=np.meshgrid(x1s,x2s)   
    X1s = np.reshape(X1s,[X1s.size])
    X2s = np.reshape(X2s,[X2s.size])
- 
-   K1 = compute_K(x1,x2,0.2,divFree)
+   
+   sigma = np.array([0.1,0.3,0.5])
+   K1 = compute_K(x1,x2,sigma[0],divFree)
    Ki1 = np.linalg.inv(K1)
-   KS1 = compute_Ks(x1,x2,X1s,X2s,0.2,divFree)
+   KS1 = compute_Ks(x1,x2,X1s,X2s,sigma[0],divFree)
    f1 = getMean(KS1,Ki1,y)
    u1 = np.reshape(f1[:f1.size/2],[x2s.size,-1])
    v1 = np.reshape(f1[f1.size/2:],[x2s.size,-1])
 
-   K2 = compute_K(x1,x2,0.3,divFree)
+   K2 = compute_K(x1,x2,sigma[1],divFree)
    Ki2 = np.linalg.inv(K2)
-   KS2 = compute_Ks(x1,x2,X1s,X2s,0.3,divFree)
+   KS2 = compute_Ks(x1,x2,X1s,X2s,sigma[1],divFree)
    f2 = getMean(KS2,Ki2,y)
    u2 = np.reshape(f2[:f2.size/2],[x2s.size,-1])
    v2 = np.reshape(f2[f2.size/2:],[x2s.size,-1])
 
-   K3 = compute_K(x1,x2,0.4,divFree)
+   K3 = compute_K(x1,x2,sigma[2],divFree)
    Ki3 = np.linalg.inv(K3)
-   KS3 = compute_Ks(x1,x2,X1s,X2s,0.4,divFree)
+   KS3 = compute_Ks(x1,x2,X1s,X2s,sigma[2],divFree)
    f3 = getMean(KS3,Ki3,y)
    u3 = np.reshape(f3[:f3.size/2],[x2s.size,-1])
    v3 = np.reshape(f3[f3.size/2:],[x2s.size,-1])
 
-   K4 = sqExp(x1,x2,x1,x2,0.4)
+   K4 = sqExp(x1,x2,x1,x2,sigma[2])
    Ki4 = np.linalg.inv(K4)
-   KS4 = sqExp(X1s,X2s,x1,x2,0.4)
+   KS4 = sqExp(X1s,X2s,x1,x2,sigma[2])
    u4 = np.dot(KS4,np.dot(Ki4,y1)) #getMean(KS4,Ki4,y1)
    u4 = np.reshape(u4,[x2s.size,-1])
    v4 = np.dot(KS4,np.dot(Ki4,y2)) #getMean(KS4,Ki4,y2)
@@ -322,7 +334,10 @@ def run_example(divFree = 1):
    err_ang4[np.where(err_ang4>180)]=360-err_ang4[np.where(err_ang4>180)]
 
    text1 = np.array(['Div-free Kernel','Div-free kernel','Div-free kernel','Isotropic kernel'])
-   text2 = np.array(['$\sigma=0.2$','$\sigma=0.3$','$\sigma=0.4$','$\sigma=0.4$'])
+   text2 = np.array(['$\sigma='+str(sigma[0])+'$',
+                     '$\sigma='+str(sigma[1])+'$',
+                     '$\sigma='+str(sigma[2])+'$',
+                     '$\sigma='+str(sigma[2])+'$'])
    
    plot4var(err_u1,err_u2,err_u3,err_u4,ds,'Absolute-Error-U',text1,text2)
    plot4var(err_v1,err_v2,err_v3,err_v4,ds,'Absolute-Error-V',text1,text2)
@@ -336,9 +351,9 @@ def run_example(divFree = 1):
    
    um = np.reshape(um,[xm.size,-1])
    vm = np.reshape(vm,[xm.size,-1])
-   return x1s,x2s,u1,v1,u2,v2,u3,v3,u4,v4,um,vm,x1,x2 
-#   quiver4var(u1-um,v1-vm,u2-um,v2-vm,u3-um,v3-vm,u4-um,v4-vm,X1s,X2s,x1,x2,'Velocity Error',text1,text2)
-#   quiver4var(u1,v1,u2,v2,u3,v3,u4,v4,X1s,X2s,x1,x2,'Velocity vectors',text1,text2)
+#   return x1s,x2s,u1,v1,u2,v2,u3,v3,u4,v4,um,vm,x1,x2 
+   quiver4var(u1-um,v1-vm,u2-um,v2-vm,u3-um,v3-vm,u4-um,v4-vm,X1s,X2s,x1,x2,'Velocity Error',text1,text2)
+   quiver4var(u1,v1,u2,v2,u3,v3,u4,v4,X1s,X2s,x1,x2,'Velocity vectors',text1,text2)
 
 #   plot=fig.add_subplot(221)
 #   plot.quiver(X1,X2,um,vm,scale = 1)

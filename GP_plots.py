@@ -231,7 +231,7 @@ def quiver4var(u1,v1,u2,v2,u3,v3,u4,v4,x,y,xo,yo,title,text1,text2):
    plot.tick_params(axis='both',which='major',labelsize=FS2)
 #   plot.set_title(title,fontsize = FS)
 
-   pl.savefig('plots/'+title+'quiver.png', bbox_inches=0)
+   pl.savefig('plots/'+title+'.png', bbox_inches=0)
 #####################################################################
 def run_example(nsamples = 5,divFree = 1):
    x,y,phi,xm,ym,um,vm = generate_2D_gaussian(divFree)
@@ -352,8 +352,8 @@ def run_example(nsamples = 5,divFree = 1):
    um = np.reshape(um,[xm.size,-1])
    vm = np.reshape(vm,[xm.size,-1])
 #   return x1s,x2s,u1,v1,u2,v2,u3,v3,u4,v4,um,vm,x1,x2 
-   quiver4var(u1-um,v1-vm,u2-um,v2-vm,u3-um,v3-vm,u4-um,v4-vm,X1s,X2s,x1,x2,'Velocity Error',text1,text2)
-   quiver4var(u1,v1,u2,v2,u3,v3,u4,v4,X1s,X2s,x1,x2,'Velocity vectors',text1,text2)
+   quiver4var(u1-um,v1-vm,u2-um,v2-vm,u3-um,v3-vm,u4-um,v4-vm,X1s,X2s,x1,x2,'Velocity-Error',text1,text2)
+   quiver4var(u1,v1,u2,v2,u3,v3,u4,v4,X1s,X2s,x1,x2,'Reconstructed-Velocity',text1,text2)
 
 #   plot=fig.add_subplot(221)
 #   plot.quiver(X1,X2,um,vm,scale = 1)
@@ -457,20 +457,72 @@ def singleVector():
    vo = np.array([0.])
    ob = np.concatenate([uo,vo])
    ob = np.reshape(ob,[ob.size,1])
-   K1 = gp.compute_K(xo,xo,0.1,1)
-   Ks1 = gp.compute_Ks(xo,xo,X,Y,0.1,1)
+   
+   K1 = sqExp(xo,xo,xo,xo,0.1)
    Ki1 = np.linalg.inv(K1)
-   f1 = gp.getMean(Ks1,Ki1,ob)
-   u1 = np.reshape(f1[0:f1.size/2],[x.size,-1])
-   v1 = np.reshape(f1[f1.size/2:],[x.size,-1])
+   Ks1 = sqExp(X,Y,xo,yo,0.1)
+   u1 = np.dot(Ks1,np.dot(Ki1,uo)) 
+   u1 = np.reshape(u1,[x.size,-1])
+   v1 = np.dot(Ks1,np.dot(Ki1,vo)) 
+   v1 = np.reshape(v1,[x.size,-1])
+
+   K2 = gp.compute_K(xo,xo,0.1,1)
+   Ks2 = gp.compute_Ks(xo,xo,X,Y,0.1,1)
+   Ki2 = np.linalg.inv(K2)
+   f2 = gp.getMean(Ks2,Ki2,ob)
+   u2 = np.reshape(f2[0:f2.size/2],[x.size,-1])
+   v2 = np.reshape(f2[f2.size/2:],[x.size,-1])
+
+   K3 = gp.compute_K(xo,xo,0.1,2)
+   Ks3 = gp.compute_Ks(xo,xo,X,Y,0.1,2)
+   Ki3 = np.linalg.inv(K3)
+   f3 = gp.getMean(Ks3,Ki3,ob)
+   u3 = np.reshape(f3[0:f3.size/2],[x.size,-1])
+   v3 = np.reshape(f3[f3.size/2:],[x.size,-1])
+
+   figH = 20
+   figW = 8
+   bottom = [0.68,0.35,0.02]
+   height = 0.3
+   left = 0.05
+   width = 0.9
+
+   FS = 38
+   FS2 = 32
+   scal = 25.
+
+   fig = pl.figure(figsize=(figW,figH))
+
+   plot=fig.add_axes([left,bottom[0],width,height])
+   cs=plot.quiver(x,y,u1,v1,scale=scal)
+   plot.tick_params(axis='both',which='major',labelsize=FS2)
+   plot.set_title('Isotropic kernel',fontsize = FS)
+
+   plot=fig.add_axes([left,bottom[1],width,height])
+   cs=plot.quiver(x,y,u2,v2,scale=scal)
+   plot.tick_params(axis='both',which='major',labelsize=FS2)
+   plot.set_title('Divergence-free kernel',fontsize = FS)
+
+   plot=fig.add_axes([left,bottom[2],width,height])
+   cs=plot.quiver(x,y,u3,v3,scale=scal)
+   plot.tick_params(axis='both',which='major',labelsize=FS2)
+   plot.set_title('Curl-free kernel',fontsize = FS)
+
+
 ###############################################################################
 def twoVectors(sigma = 0.2):
 #
-   figW = 20.
-   figH = 20.
+   figH = 18
+   figW = 13
+   bottom = [0.68,0.35,0.02]
+   height = 0.3
+   left = [0.07,0.56]
+   width = 0.4
+
    FS = 42
-   FS2 = 20
-   scal = 30.
+   FS2 = 32
+
+   scal = 25.
 #
    dx = 0.05
    x = np.arange(-1,1+dx,dx)
@@ -484,8 +536,10 @@ def twoVectors(sigma = 0.2):
    uo1 = 1.
    vo1 = 0.
 # observation 2, varying direction, intensity and location
-   xo2 = np.array([0.07,0.14,0.28])
-   yo2 = np.array([0.07,0.14,0.28])
+#   xo2 = np.array([0.07,0.14,0.28])
+#   yo2 = np.array([0.07,0.14,0.28])
+   xo2 = np.array([0.07,0.28])
+   yo2 = np.array([0.07,0.28])
    angle = np.array([45,90,180])
    absVel = np.array([0.5,1,2])
 #
@@ -513,23 +567,27 @@ def twoVectors(sigma = 0.2):
             # plot
             print jk
             print i,j,k
-            plot = fig.add_subplot(3,3,jk)
+#            plot = fig.add_subplot(3,3,jk)
+            plot=fig.add_axes([left[k],bottom[j],width,height])
             plot.quiver(X,Y,uf,vf,scale=scal)
             pl.quiver(xo,yo,uo,vo,scale=scal,color='r')
             plot.set_xlim([-0.6,0.8])
             plot.set_ylim([-0.6,0.8])
+            plot.set_xticks([-0.6,-0.3,0.,0.3,0.6])
+            plot.set_yticks([-0.5,-0.2,0.1,0.4,0.7])
+
 #            titleText = plot.text(0.7, 1.05, '',transform=plot.transAxes,
 #                               fontsize=FS,fontweight='bold')
             titleText1 = plot.text(0.05, 0.9, '',transform=plot.transAxes,
-                               fontsize=FS2+5,fontweight='bold',color='b')
+                               fontsize=FS2,fontweight='bold',color='b')
             titleText2 = plot.text(0.03, 0.03, '',transform=plot.transAxes,
-                               fontsize=FS2+5,fontweight='bold',color='b')
-            titleText3 = plot.text(0.54, 0.03, '',transform=plot.transAxes,
-                               fontsize=FS2+5,fontweight='bold',color='b')
-            titleText1.set_text('$\Theta='+str(angle[i])+'$')
+                               fontsize=FS2,fontweight='bold',color='b')
+            titleText3 = plot.text(0.7, 0.03, '',transform=plot.transAxes,
+                               fontsize=FS2,fontweight='bold',color='b')
+            titleText3.set_text('$\Theta='+str(angle[i])+'$')
             titleText2.set_text('$|v_2|='+str(absVel[j])+'$')
             dx2= np.round(np.sqrt(np.square(xo1-xo2[k])+np.square(yo1-yo2[k])),decimals=2)
-            titleText3.set_text('$|x_2-x_1|='+str(dx2)+'$')
+            titleText1.set_text('$|x_2-x_1|='+str(dx2)+'$')
             plot.tick_params(axis='both',which='major',labelsize=FS2)
             jk+=1
       pl.savefig(filename, bbox_inches=0)

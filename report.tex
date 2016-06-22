@@ -24,14 +24,25 @@
 \begin{document}
 
 \section{Building a velocity field with one observation}
-Here, the effect of a single observation is evaluated. Three different kernels are tested: 
-a divergence-free kernel, a curl-free kernel and an isotropic squared-exponential kernel. 
+Here, the effect of a single observation is observed. Three different kernels are tested: 
+a divergence-free kernel, a curl-free kernel and an isotropic squared-exponential kernel 
+(Figure \ref{one_obs}). 
+
+\begin{figure}
+\centering\includegraphics[width=24pc]{plots/one_obs.png}
+\caption{Velocity fields constructed from one observation (red vectors) considering 
+different kernel functions. In all of them, the decorrelation length was $\sigma=0.1$.} 
+\label{one_obs}
+\end{figure}
+
 \newpage
+
 \section{Building a velocity field with two observations}
 Here, the combined effect of two observations in the construction of a velocity field using 
 the divergence-free kernel is explored. Figures \ref{2-vec-45}, \ref{2-vec-90}, and \ref{2-vec-180} 
 show the construction of velocity fields considering differences in the relative position of 
 the observations, intensity and direction.
+
 \begin{figure}
 \centering\includegraphics[width=36pc]{plots/2_vectors_angle_45.png}
 \caption{Velocity fields constructed from two observations (red vectors). 

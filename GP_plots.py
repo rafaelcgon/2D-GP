@@ -339,20 +339,20 @@ def run_example(nsamples = 5,divFree = 1):
                      '$\sigma='+str(sigma[2])+'$',
                      '$\sigma='+str(sigma[2])+'$'])
    
-   plot4var(err_u1,err_u2,err_u3,err_u4,ds,'Absolute-Error-U',text1,text2)
-   plot4var(err_v1,err_v2,err_v3,err_v4,ds,'Absolute-Error-V',text1,text2)
-   plot4var(err_vel1,err_vel2,err_vel3,err_vel4,ds,'Absolute-Error-Speed',text1,text2)
-   plot4var(err_ang1,err_ang2,err_ang3,err_ang4,ds,'Absolute-Error-Angle',text1,text2)
+#   plot4var(err_u1,err_u2,err_u3,err_u4,ds,'Absolute-Error-U',text1,text2)
+#   plot4var(err_v1,err_v2,err_v3,err_v4,ds,'Absolute-Error-V',text1,text2)
+#   plot4var(err_vel1,err_vel2,err_vel3,err_vel4,ds,'Absolute-Error-Speed',text1,text2)
+#   plot4var(err_ang1,err_ang2,err_ang3,err_ang4,ds,'Absolute-Error-Angle',text1,text2)
 
-   contour4var(err_u1,err_u2,err_u3,err_u4,x1s,x2s,x1,x2,'Absolute-Error-U',text1,text2)
-   contour4var(err_v1,err_v2,err_v3,err_v4,x1s,x2s,x1,x2,'Absolute-Error-V',text1,text2)
-   contour4var(err_vel1,err_vel2,err_vel3,err_vel4,x1s,x2s,x1,x2,'Absolute-Error-Speed',text1,text2)
-   contour4var(err_ang1,err_ang2,err_ang3,err_ang4,x1s,x2s,x1,x2,'Absolute-Error-Angle',text1,text2)
+#   contour4var(err_u1,err_u2,err_u3,err_u4,x1s,x2s,x1,x2,'Absolute-Error-U',text1,text2)
+#   contour4var(err_v1,err_v2,err_v3,err_v4,x1s,x2s,x1,x2,'Absolute-Error-V',text1,text2)
+#   contour4var(err_vel1,err_vel2,err_vel3,err_vel4,x1s,x2s,x1,x2,'Absolute-Error-Speed',text1,text2)
+#   contour4var(err_ang1,err_ang2,err_ang3,err_ang4,x1s,x2s,x1,x2,'Absolute-Error-Angle',text1,text2)
    
    um = np.reshape(um,[xm.size,-1])
    vm = np.reshape(vm,[xm.size,-1])
 #   return x1s,x2s,u1,v1,u2,v2,u3,v3,u4,v4,um,vm,x1,x2 
-   quiver4var(u1-um,v1-vm,u2-um,v2-vm,u3-um,v3-vm,u4-um,v4-vm,X1s,X2s,x1,x2,'Velocity-Error',text1,text2)
+#   quiver4var(u1-um,v1-vm,u2-um,v2-vm,u3-um,v3-vm,u4-um,v4-vm,X1s,X2s,x1,x2,'Velocity-Error',text1,text2)
    quiver4var(u1,v1,u2,v2,u3,v3,u4,v4,X1s,X2s,x1,x2,'Reconstructed-Velocity',text1,text2)
 
 #   plot=fig.add_subplot(221)
@@ -451,6 +451,8 @@ def singleVector():
    x = np.arange(-1,1+dx,dx)
    y = np.arange(-1,1+dx,dx)
    X,Y = np.meshgrid(x,y)
+   x2 = np.reshape(X,[-1])
+   y2 = np.reshape(Y,[-1])
    xo = np.array([0.])
    yo = np.array([0.])
    uo = np.array([1.])
@@ -460,55 +462,70 @@ def singleVector():
    
    K1 = sqExp(xo,xo,xo,xo,0.1)
    Ki1 = np.linalg.inv(K1)
-   Ks1 = sqExp(X,Y,xo,yo,0.1)
+   Ks1 = sqExp(x2,y2,xo,yo,0.1)
    u1 = np.dot(Ks1,np.dot(Ki1,uo)) 
    u1 = np.reshape(u1,[x.size,-1])
    v1 = np.dot(Ks1,np.dot(Ki1,vo)) 
    v1 = np.reshape(v1,[x.size,-1])
 
-   K2 = gp.compute_K(xo,xo,0.1,1)
-   Ks2 = gp.compute_Ks(xo,xo,X,Y,0.1,1)
+   K2 = compute_K(xo,xo,0.1,1)
+   Ks2 = compute_Ks(xo,xo,x2,y2,0.1,1)
    Ki2 = np.linalg.inv(K2)
-   f2 = gp.getMean(Ks2,Ki2,ob)
+   f2 = getMean(Ks2,Ki2,ob)
    u2 = np.reshape(f2[0:f2.size/2],[x.size,-1])
    v2 = np.reshape(f2[f2.size/2:],[x.size,-1])
 
-   K3 = gp.compute_K(xo,xo,0.1,2)
-   Ks3 = gp.compute_Ks(xo,xo,X,Y,0.1,2)
+   K3 = compute_K(xo,xo,0.1,2)
+   Ks3 = compute_Ks(xo,xo,x2,y2,0.1,2)
    Ki3 = np.linalg.inv(K3)
-   f3 = gp.getMean(Ks3,Ki3,ob)
+   f3 = getMean(Ks3,Ki3,ob)
    u3 = np.reshape(f3[0:f3.size/2],[x.size,-1])
    v3 = np.reshape(f3[f3.size/2:],[x.size,-1])
 
    figH = 20
-   figW = 8
-   bottom = [0.68,0.35,0.02]
-   height = 0.3
-   left = 0.05
-   width = 0.9
+   figW = 9.5
+   bottom = [0.69,0.36,0.03]
+   height = 0.27
+   left = 0.085
+   width = 0.88
 
    FS = 38
    FS2 = 32
-   scal = 25.
+   scal = 15.
 
    fig = pl.figure(figsize=(figW,figH))
 
    plot=fig.add_axes([left,bottom[0],width,height])
    cs=plot.quiver(x,y,u1,v1,scale=scal)
+   pl.quiver(xo,yo,uo,vo,scale=scal,color='r')
    plot.tick_params(axis='both',which='major',labelsize=FS2)
    plot.set_title('Isotropic kernel',fontsize = FS)
+   plot.set_xlim([-0.3,0.3])
+   plot.set_ylim([-0.3,0.3])
+   plot.set_xticks([-0.3,-0.2,-0.1,0.,0.1,0.2,0.3])
+   plot.set_yticks([-0.2,-0.1,0.0,0.1,0.2])
 
    plot=fig.add_axes([left,bottom[1],width,height])
    cs=plot.quiver(x,y,u2,v2,scale=scal)
+   pl.quiver(xo,yo,uo,vo,scale=scal,color='r')
    plot.tick_params(axis='both',which='major',labelsize=FS2)
    plot.set_title('Divergence-free kernel',fontsize = FS)
+   plot.set_xlim([-0.3,0.3])
+   plot.set_ylim([-0.3,0.3])
+   plot.set_xticks([-0.3,-0.2,-0.1,0.,0.1,0.2,0.3])
+   plot.set_yticks([-0.2,-0.1,0.0,0.1,0.2])
 
    plot=fig.add_axes([left,bottom[2],width,height])
    cs=plot.quiver(x,y,u3,v3,scale=scal)
+   pl.quiver(xo,yo,uo,vo,scale=scal,color='r')
    plot.tick_params(axis='both',which='major',labelsize=FS2)
    plot.set_title('Curl-free kernel',fontsize = FS)
+   plot.set_xlim([-0.3,0.3])
+   plot.set_ylim([-0.3,0.3])
+   plot.set_xticks([-0.3,-0.2,-0.1,0.,0.1,0.2,0.3])
+   plot.set_yticks([-0.2,-0.1,0.0,0.1,0.2])
 
-
+   pl.savefig('plots/one_obs.png', bbox_inches=0)
 ###############################################################################
 def twoVectors(sigma = 0.2):
 #

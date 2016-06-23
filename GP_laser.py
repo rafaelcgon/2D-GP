@@ -76,34 +76,46 @@ def laser(timestep,sigma = 10):
    return x,y,uf,vf,xo,yo,uo,vo
 
 ########################################################################################
-def simLaser(sigma = 2)
-   with open('simulTracks.pkl','rb') as input:
-        tr = pickle.load(input)
-
-   latt = tr.lat[:,0]
-   lont = tr.lon[:,0]
-   lat0 = 28.74
-   lon0 = -88.22
-# Put observations in a 20 km by 20 km dimension
-   xo = np.zeros(np.size(lont))
-   yo = np.zeros(np.size(lont))
-   for i in range(xo.size):
-      xo[i] = GreatCircleDistance((latt[i],lont[i]),(latt[i],lon0)).km
-      yo[i] = GreatCircleDistance((latt[i],lont[i]),(lat0,lont[i])).km
-#      xo[i] = vincenty((latt[i],lont[i]),(latt[i],lon0)).km
-#      yo[i] = vincenty((latt[i],lont[i]),(lat0,lont[i])).km
-   obs = np.concatenate([uo,vo])
-   obs = np.reshape(obs,[obs.size,1])
-   K = compute_K(xo,yo,sigma,1)
-   Ki = = np.linalg.inv(K)
-
+def simLaser(ts=0,l_df = 2,l_cf = 2,rate=0.5,noise = 0.05):
+  
    dx = 0.5
-   x = np.arange(0,20+dx,dx)
-   y = np.arange(0,20+dx,dx)
+   x = np.arange(0,25+dx,dx)
+   y = np.arange(0,25+dx,dx)
    X,Y = np.meshgrid(x,y)
    Xs = np.reshape(X,[X.size])
    Ys = np.reshape(Y,[Y.size])   
 
-   
-   Ks = compute_Ks(xo,yo,Xs,Ys,sigma,1)
+   with open('simulTracks.pkl','rb') as input:
+        tr = pickle.load(input)
 
+   lat0 = 28.69
+   lon0 = -88.28
+# Put observations in a 20 km by 20 km dimension
+   xob = np.zeros((np.size(tr.lon,0),np.size(tr.lon,1)))
+   yob = np.zeros((np.size(tr.lon,0),np.size(tr.lon,1)))
+   for t in range(np.size(tr.lon,1)):
+      latt = tr.lat[:,t]
+      lont = tr.lon[:,t]
+      for i in range(np.size(tr.lon,0)):
+         xob[i,t] = GreatCircleDistance((latt[i],lont[i]),(latt[i],lon0)).km
+         yob[i,t] = GreatCircleDistance((latt[i],lont[i]),(lat0,lont[i])).km
+#      xo[i] = vincenty((latt[i],lont[i]),(latt[i],lon0)).km
+#      yo[i] = vincenty((latt[i],lont[i]),(lat0,lont[i])).km
+   xo = xob[:,ts]
+   yo = yob[:,ts]
+   uo = tr.u[:,ts]
+   vo = tr.v[:,ts]
+   obs = np.concatenate([uo,vo])
+   obs = np.reshape(obs,[obs.size,1])
+
+   K = rate*compute_K(xo,yo,l_df,1) + (1-rate)*compute_K(xo,yo,l_cf,2) 
+   Ko = np.identity(np.size(K,0))*noise
+   K = K + Ko 
+   Ki = np.linalg.inv(K)
+   Ks = rate*compute_Ks(xo,yo,Xs,Ys,l_df,1) + (1-rate)*rate*compute_Ks(xo,yo,Xs,Ys,l_cf,2)
+   
+   f = getMean(Ks,Ki,obs)
+   uf = np.reshape(f[:f.size/2],[y.size,-1])
+   vf = np.reshape(f[f.size/2:],[y.size,-1])
+
+   return X,Y,uf,vf,xob,yob,tr.u,tr.v

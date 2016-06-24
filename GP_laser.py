@@ -12,7 +12,7 @@ sys.path.append('/home/rgoncalves/LagOil/LASER')
 import laser_post_process as lpp
 from geopy.distance import vincenty,GreatCircleDistance
 
-def laser(timestep,sigma = 10):
+def laser(ts=10,nsteps=3,l_df = 2,l_cf = 2,rate=0.5,noise = 0.05):
 #
 #  Load Observations
    with open('/home/rgoncalves/LagOil/LASER/interp_ALL_2016_2_7.pkl','rb') as input:
@@ -26,36 +26,47 @@ def laser(timestep,sigma = 10):
    # compute fsle for 5 days et =  start + 48 * 5
    et = st + (48 * 10) +1
    time = tr.time[st:et] - tr.time[st]    
-   state = np.ones(np.size(tr.id))
+   state = np.ones(np.size(tr.id)*nsteps)
    samples = tr.n_samples[:,st:et]
    criteria = 3
 
    latt = tr.lat[:,st:et]
-   latt = np.squeeze(latt[:,timestep])
-   latt = latt[np.where((state==1)&(~np.isnan(latt)))]
+#   latt = np.squeeze(latt[:,ts])
+#   latt = latt[np.where((state==1)&(~np.isnan(latt)))]
 
    lont = tr.lon[:,st:et]
-   lont = np.squeeze(lont[:,timestep])
-   lont = lont[np.where((state==1)&(~np.isnan(lont)))]
+#   lont = np.squeeze(lont[:,ts])
+#   lont = lont[np.where((state==1)&(~np.isnan(lont)))]
 
-   uo = tr.u[:,st:et]
-   uo = np.squeeze(uo[:,timestep])
-   uo = uo[np.where((state==1)&(~np.isnan(uo)))]
+   uob = tr.u[:,st:et]
+   uo = np.reshape(uob[:,ts:ts+nsteps],[-1])
+   vob = tr.v[:,st:et]
+   vo = np.reshape(vob[:,ts:ts+nsteps],[-1])
+   uo[np.where(np.abs(uo)>1.5)]=np.nan 
+   vo[np.where(np.abs(vo)>1.5)]=np.nan
 
-   vo = tr.v[:,st:et]
-   vo = np.squeeze(vo[:,timestep])
-   vo = vo[np.where((state==1)&(~np.isnan(vo)))]
+   invPoints = np.where((state==1)&(~np.isnan(uo))&(~np.isnan(vo)))
+   uo = uo[invPoints]
+   vo = vo[invPoints]
 
    lat0 = 28.8
    lon0 = -88.55
 # Put observations in a 20 km by 20 km dimension
-   xo = np.zeros(np.size(lont))
-   yo = np.zeros(np.size(lont))
-   for i in range(xo.size):
-      xo[i] = GreatCircleDistance((latt[i],lont[i]),(latt[i],lon0)).km
-      yo[i] = GreatCircleDistance((latt[i],lont[i]),(lat0,lont[i])).km
+   xob = np.zeros((np.size(lont,0),np.size(lont,1)))
+   yob = np.zeros((np.size(lont,0),np.size(lont,1)))
+   for t in range(np.size(lont,1)):
+      latt2 = np.squeeze(latt[:,t])
+      lont2 = np.squeeze(lont[:,t])
+      for i in range(np.size(lont,0)):
+         xob[i,t] = GreatCircleDistance((latt2[i],lont2[i]),(latt2[i],lon0)).km
+         yob[i,t] = GreatCircleDistance((latt2[i],lont2[i]),(lat0,lont2[i])).km
 #      xo[i] = vincenty((latt[i],lont[i]),(latt[i],lon0)).km
 #      yo[i] = vincenty((latt[i],lont[i]),(lat0,lont[i])).km
+   xo = np.reshape(xob[:,ts:ts+nsteps],[-1])
+   xo = xo[invPoints]#np.where((state==1)&(~np.isnan(xo)))]
+
+   yo = np.reshape(yob[:,ts:ts+nsteps],[-1])
+   yo = yo[invPoints] #np.where((state==1)&(~np.isnan(yo)))]
    obs = np.concatenate([uo,vo])
    obs = np.reshape(obs,[obs.size,1])
 
@@ -66,14 +77,17 @@ def laser(timestep,sigma = 10):
    Xs = np.reshape(X,[X.size])
    Ys = np.reshape(Y,[Y.size])   
 #
-   K = compute_K(xo,yo,sigma,1)
+   K = rate*compute_K(xo,yo,l_df,1) + (1-rate)*compute_K(xo,yo,l_cf,2) 
+   Ko = np.identity(np.size(K,0))*noise
+   K = K + Ko 
    Ki = np.linalg.inv(K)
-   Ks = compute_Ks(xo,yo,Xs,Ys,sigma,1)
+   Ks = rate*compute_Ks(xo,yo,Xs,Ys,l_df,1) + (1-rate)*rate*compute_Ks(xo,yo,Xs,Ys,l_cf,2)
+
    f = getMean(Ks,Ki,obs)
    uf = np.reshape(f[:f.size/2],[y.size,-1])
    vf = np.reshape(f[f.size/2:],[y.size,-1])
 
-   return x,y,uf,vf,xo,yo,uo,vo
+   return X,Y,uf,vf,xob,yob,uob,vob 
 
 ########################################################################################
 def simLaser(ts=0,l_df = 2,l_cf = 2,rate=0.5,noise = 0.05):

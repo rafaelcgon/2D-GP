@@ -34,6 +34,8 @@ def laser(ts=10,nsteps=3,l_df = 2,l_cf = 2,rate=0.5,noise = 0.05):
    drogue = tr.drogueStat[:,st:et]
    uob = tr.u[:,st:et]
    vob = tr.v[:,st:et]
+   uob[np.where(drogue==0)]=np.nan 
+   vob[np.where(drogue==0)]=np.nan 
    # origin of cartesian coord.
    lat0 = 28.8
    lon0 = -88.55
@@ -50,8 +52,8 @@ def laser(ts=10,nsteps=3,l_df = 2,l_cf = 2,rate=0.5,noise = 0.05):
 
    NAD83=pyproj.Proj("+init=EPSG:3452") #Louisiana South (ftUS)
    xob,yob=NAD83(lont,latt)
-   xob[np.where(isnan(lont))]=np.nan
-   yob[np.where(isnan(lont))]=np.nan
+   xob[np.where(np.isnan(lont))]=np.nan
+   yob[np.where(np.isnan(lont))]=np.nan
 
    xo = np.reshape(xob[:,ts:ts+nsteps],[-1])/1000. # in km
    yo = np.reshape(yob[:,ts:ts+nsteps],[-1])/1000. # in km
@@ -60,7 +62,7 @@ def laser(ts=10,nsteps=3,l_df = 2,l_cf = 2,rate=0.5,noise = 0.05):
    uo[np.where(np.abs(uo)>2)]=np.nan 
    vo[np.where(np.abs(vo)>2)]=np.nan
 
-   invPoints = np.where((state==1)&(~np.isnan(uo))&(~np.isnan(vo)))
+   invPoints = np.where((~np.isnan(uo))&(~np.isnan(vo)))
    uo = uo[invPoints]
    vo = vo[invPoints]
    xo = xo[invPoints]#np.where((state==1)&(~np.isnan(xo)))]
@@ -91,7 +93,7 @@ def laser(ts=10,nsteps=3,l_df = 2,l_cf = 2,rate=0.5,noise = 0.05):
    uf = np.reshape(f[:f.size/2],[y.size,-1])
    vf = np.reshape(f[f.size/2:],[y.size,-1])
 
-   return X,Y,uf,vf,xob,yob,uob,vob 
+   return X,Y,uf,vf,xob,yob,uob,vob,Cov 
 
 ########################################################################################
 def simLaser(ts=0,l_df = 2,l_cf = 2,rate=0.5,noise = 0.05):

@@ -7,7 +7,7 @@ def getMean(KS,Ki,y):
    f = np.dot(KS,np.dot(Ki,y))
    return np.reshape(f,[-1])
 #################################################################################
-def getMargLikelihood(x1,x2,x1s,x2s,sigma=0.2,divFree=1):
+def getCov(x1,x2,x1s,x2s,sigma=0.2,divFree=1):
    K = compute_K(x1,x2,sigma,divFree)
    Ki = np.linalg.inv(K)
    Ks = compute_Ks(x1,x2,x1s,x2s,sigma,divFree)

@@ -8,7 +8,7 @@ import matplotlib as mpl
 from GP_scripts import *
 import sys
 import cPickle as pickle
-#sys.path.append('/home/rgoncalves/LagOil/LASER')
+sys.path.append('/home/rgoncalves/LagOil/LASER')
 #import laser_post_process as lpp
 from geopy.distance import vincenty,GreatCircleDistance
 import mpl_toolkits.basemap.pyproj as pyproj
@@ -71,7 +71,7 @@ def laser(ts=20,nsteps=8,l_df=5,l_cf=5,rate=0.5,noise = 0.0025,nsamples=1):
    yo = yo-yo.min() + 2
    
    if nsamples>0:
-      samples = np.array(0,xo.size,3) #np.random.randint(0,xo.size,nsamples)
+      samples = np.arange(0,xo.size,3) #np.random.randint(0,xo.size,nsamples)
       test = set(np.arange(xo.size)) - set(samples)
       test = np.array(list(test))
       xt = xo[test] # use to compute error
@@ -102,17 +102,22 @@ def laser(ts=20,nsteps=8,l_df=5,l_cf=5,rate=0.5,noise = 0.0025,nsamples=1):
    Ys = np.reshape(Y,[Y.size])   
 # Compute covariances
    # obs points
+   print 'compute K'
    K = rate*compute_K(xo,yo,l_df,1) + (1-rate)*compute_K(xo,yo,l_cf,2) 
    Ko = np.identity(np.size(K,0))*noise # obs noise
    K = K + Ko 
    # invert K
+   print 'invert K'
    Ki = np.linalg.inv(K)
    # test points
+   print 'compute Ks'
+
    Ks = rate*compute_Ks(xo,yo,Xs,Ys,l_df,1) + (1-rate)*compute_Ks(xo,yo,Xs,Ys,l_cf,2)
 
    # verification points
+   print 'compute Kst'
    Kst = rate*compute_Ks(xo,yo,xt,yt,l_df,1) + (1-rate)*compute_Ks(xo,yo,xt,yt,l_cf,2)
-
+   print 'compute Kss'
    Kss = rate*compute_K(Xs,Ys,l_df,1) + (1-rate)*compute_K(Xs,Ys,l_cf,2)
    Cov = Kss - np.dot(Ks,np.dot(Ki,Ks.T))
    uvar =  np.reshape(np.diag(Cov[:X.size,:X.size]),[y.size,-1])
@@ -127,7 +132,7 @@ def laser(ts=20,nsteps=8,l_df=5,l_cf=5,rate=0.5,noise = 0.0025,nsamples=1):
    uft = ft[:ft.size/2]
    vft = ft[ft.size/2:]
 
-   return x,y,uf,vf,xo,yo,uo,vo,Cov,uvar,vvar,xt,yt,ut,vt,uft,vft 
+   return x,y,uf,vf,xo,yo,uo,vo,uvar,vvar,xt,yt,ut,vt,uft,vft 
 
 ########################################################################################
 def simLaser(ts=0,l_df = 2,l_cf = 2,rate=0.5,noise = 0.05):

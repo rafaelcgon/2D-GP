@@ -91,6 +91,14 @@ def sqExp(x1,y1,x2,y2,sigma):
             xb = np.array([x2[j],y2[j]])
             K[i,j] = nonDivK(xa,xb,sigma,divFree=0)
     return K
+################################################################################
+def rbf(x1,x2,l=1,sigma=1,noise=0):
+   K = np.zeros((x1.size,x2.size))
+   for i in range(x2.size):
+      K[:,i] = (np.square(sigma) * np.exp(-np.square(x2[i]-x1)/(2*np.square(l))))
+   if (x1.size==x2.size):
+      K = K + np.identity(x1.size)*noise
+   return K
 #################################################################################
 def rmse(x1s,x2s,f1,f2,x1,x2,y1,y2,knd = ''):
    # compute the rmse in the data points

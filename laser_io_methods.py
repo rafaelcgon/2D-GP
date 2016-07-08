@@ -272,7 +272,7 @@ def interp_kriging(filename='ALL_2016_2_7.pkl',dt=900,period=10,sp = 0.001):
 
     period_end = data[0].time[0] + period*86400 # last time step
     time = np.arange(data[0].time[0],period_end,dt)
-
+    time2 = (time-data[0].time[0])/3600. #time in hours 
 #    it = np.where((time>=dr.time[0])&(time<=dr.time[-1]))
 
     N = np.size(data)
@@ -309,19 +309,23 @@ def interp_kriging(filename='ALL_2016_2_7.pkl',dt=900,period=10,sp = 0.001):
 # gaussian process interpolation
         kernel = GPy.kern.RBF(input_dim=1, variance=100., lengthscale=2)
         X = np.array(dr.time)[it2]
-        X = np.reshape(X,[X.size,1])
+        X = (np.reshape(X,[X.size,1])-data[0].time[0])/3600.
         Y1 = np.array(dr.lon)[it2]
         Y2 = np.array(dr.lat)[it2]
         Y = np.array([Y1,Y2]).T
         model = GPy.models.GPRegression(X,Y,kernel)
-        model.optimize()
-        variables,variance[n,it] = model.predict(time[it])
-#        lon[n,it] = interpolate.splev(time[it],tck_lon,der=0)
-#        lat[n,it] = interpolate.splev(time[it],tck_lat,der=0)
+        model.optimize(messeges=True)
+        variables,variance[n,it] = model.predict(time2[it])
         lon[n,it] = variables[:,0]
         lat[n,it] = variables[:,1]   
 # variance is sigma**2!
 # variance * np.exp(-np.square(x-xo)/(2*np.square(lengthscale))))
+#
+# for spline interpolation:
+#        tck_lon = interpolate.splrep(np.array(dr.time)[it2],np.array(dr.lon)[it2],s=sp)
+#        tck_lat = interpolate.splrep(np.array(dr.time)[it2],np.array(dr.lat)[it2],s=sp)
+#        lon[n,it] = interpolate.splev(time[it],tck_lon,der=0)
+#        lat[n,it] = interpolate.splev(time[it],tck_lat,der=0)
 
         # identify when drogue was lost
         dl = np.where(np.array(dr.date_time)<dr.drogueLoss)
@@ -337,8 +341,12 @@ def interp_kriging(filename='ALL_2016_2_7.pkl',dt=900,period=10,sp = 0.001):
         dLossDate.append(dr.drogueLoss)
         launchType[n] = dr.launchType
 # Velocity components NOT READY
+        timeDiff = np.diff(time[it],n=1)
+        u = np.diff(lon[n,it], n=1, axis=-1)*111000*np.cos(lat[n,it]*np.pi/180.)/timeDiff
+        v = np.diff(lat[n,it], n=1, axis=-1)*111000/timeDiff
 #        u[n,it] = interpolate.splev(time[it],tck_lon,der=1)*111000*np.cos(lat[n,it]*np.pi/180.)
 #        v[n,it] = interpolate.splev(time[it],tck_lat,der=1)*111000
+        
         M1,M2 = countDataPoints(time[it],np.array(dr.time))
         dr_points[n,it3] = M1
         dr_points[n,it3[0]-1] = M1[0]

@@ -22,6 +22,27 @@ class interpolated_tracks(object):
         self.v = v                # meridional velocity
         self.n_samples = nsamples # number of samples before timestep n after timestep n-1
         self.data_freq = mdt      # average data frequency btwn 2 time steps
+
+
+class interpolated_tracks2(object):
+    def __init__(self,dr_id,time,lon,lat,variance,u,v,date0,time0,nsamples,mdt, 
+                drog_stat0,drog_stat,lastDrogTime,dLossDate,launchType):
+        self.id = dr_id      # drifter ID
+        self.time = time          # interpolated time, in seconds
+        self.date0 = date0        # date and time of first data collected
+        self.time0 = time0        # time in seconds of first data collected
+        self.lat = lat            # latitude [drifter,time]
+        self.lon = lon            # longitude [drifter,time]
+        self.pos_var = variance   # uncertainty of pos estimate (posterior variance)
+        self.u = u                # zonal velocity 
+        self.v = v                # meridional velocity
+        self.n_samples = nsamples # number of samples before timestep n after timestep n-1
+        self.data_freq = mdt      # average data frequency btwn 2 time steps
+        self.drog_stat0 = drog_stat0
+        self.drog_stat = drog_stat
+        self.lastDrogTime = lastDrogTime
+        self.dlossDate = dLossDate
+        self.launchType = launchType
 ##########################################################
 class triangles(object):
     def __init__(self,time,Area,Sides,Nodes_id,Lon_n,Lat_n,

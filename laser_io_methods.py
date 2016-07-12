@@ -1,6 +1,6 @@
 import numpy as np
 from datetime import datetime
-from laser_class import drifter,interpolated_tracks
+from laser_class import drifter,interpolated_tracks2
 import cPickle as pickle
 import os
 from dateutil.parser import parse
@@ -261,7 +261,7 @@ def interp_spline(filename='ALL_2016_2_7.pkl',dt=900,period=10,sp = 0.001):
     save_object(itracks,output)
 #    return itracks
 ##########################################################################################     
-def interp_kriging(filename='ALL_2016_2_7.pkl',dt=900,period=10,sp = 0.001):
+def interp_kriging(filename='ALL_2016_2_7.pkl',dt=900,period=10):
     # dt is the time step of the interpolated data
     # period is the total period in days of the data to be interpolated
     # sp i the smoothing parameter for the cubic spline interpolation
@@ -273,15 +273,18 @@ def interp_kriging(filename='ALL_2016_2_7.pkl',dt=900,period=10,sp = 0.001):
     period_end = data[0].time[0] + period*86400 # last time step
     time = np.arange(data[0].time[0],period_end,dt)
     time2 = (time-data[0].time[0])/3600. #time in hours 
+    time2 = np.reshape(time2,[time2.size,1])
+    timem= (time2[1:]+time2[0:-1])/2.
 #    it = np.where((time>=dr.time[0])&(time<=dr.time[-1]))
 
     N = np.size(data)
     lon = np.zeros((N,np.size(time))) + np.nan
     lat = np.zeros((N,np.size(time))) + np.nan
-    varlon = np.zeros((N,np.size(time))) + np.nan
-    varlat = np.zeros((N,np.size(time))) + np.nan
-    u = np.zeros((N,np.size(time))) + np.nan
-    v = np.zeros((N,np.size(time))) + np.nan
+    variance = np.zeros((N,np.size(time))) + np.nan
+    lon2 = np.zeros((N,np.size(time)-1)) + np.nan
+    lat2 = np.zeros((N,np.size(time)-1)) + np.nan
+    u = np.zeros((N,np.size(time)-1)) + np.nan
+    v = np.zeros((N,np.size(time)-1)) + np.nan
 # drogue stat
     drog_stat = np.zeros((N,np.size(time))) 
 # last time with drogue
@@ -293,29 +296,31 @@ def interp_kriging(filename='ALL_2016_2_7.pkl',dt=900,period=10,sp = 0.001):
 # lauch type
     launchType = np.zeros(N) 
 # number of data points between interp timesteps
-    dr_points = np.zeros((N,np.size(time))) + np.nan 
+    dr_points = np.zeros((N,np.size(time)-1)) + np.nan 
 # mean data frequency between interp timesteps
-    dr_mdt = np.zeros((N,np.size(time))) + np.nan 
+    dr_mdt = np.zeros((N,np.size(time)-1)) + np.nan 
     dr_id = []
     dr_date0 = []
     dr_time0 = [] 
 # Loop over every drifter
+    kernel = GPy.kern.RBF(input_dim=1, variance=1163.67, lengthscale=3.5)
     for n in range(N):  
         print n
+        print kernel
         dr = data[n]
         it = np.where((time>=dr.time[0])&(time<=dr.time[-1]))
         it2 = np.where((dr.time>=time[it][0])&(dr.time<=time[it][-1]))
         it3 = it[0][1:]
 # gaussian process interpolation
-        kernel = GPy.kern.RBF(input_dim=1, variance=100., lengthscale=2)
         X = np.array(dr.time)[it2]
         X = (np.reshape(X,[X.size,1])-data[0].time[0])/3600.
         Y1 = np.array(dr.lon)[it2]
         Y2 = np.array(dr.lat)[it2]
         Y = np.array([Y1,Y2]).T
         model = GPy.models.GPRegression(X,Y,kernel)
-        model.optimize(messeges=True)
-        variables,variance[n,it] = model.predict(time2[it])
+#        model.optimize(messages=True)
+        variables,vari = model.predict(time2[it])
+        variance[n,it] = vari.T
         lon[n,it] = variables[:,0]
         lat[n,it] = variables[:,1]   
 # variance is sigma**2!
@@ -342,20 +347,24 @@ def interp_kriging(filename='ALL_2016_2_7.pkl',dt=900,period=10,sp = 0.001):
         launchType[n] = dr.launchType
 # Velocity components NOT READY
         timeDiff = np.diff(time[it],n=1)
-        u = np.diff(lon[n,it], n=1, axis=-1)*111000*np.cos(lat[n,it]*np.pi/180.)/timeDiff
-        v = np.diff(lat[n,it], n=1, axis=-1)*111000/timeDiff
+        latm = (np.squeeze(lat[n,it])[1:]+np.squeeze(lat[n,it])[:-1])/2.
+        lonm = (np.squeeze(lon[n,it])[1:]+np.squeeze(lon[n,it])[:-1])/2.
+        u[n,it3-1] = np.diff(lon[n,it], n=1, axis=-1)*111000*np.cos(latm*np.pi/180.)/timeDiff
+        v[n,it3-1] = np.diff(lat[n,it], n=1, axis=-1)*111000/timeDiff
+#        lat2[n,it3-1] = latm
+#        lon2[n,it3-1] = lonm
 #        u[n,it] = interpolate.splev(time[it],tck_lon,der=1)*111000*np.cos(lat[n,it]*np.pi/180.)
 #        v[n,it] = interpolate.splev(time[it],tck_lat,der=1)*111000
         
         M1,M2 = countDataPoints(time[it],np.array(dr.time))
-        dr_points[n,it3] = M1
-        dr_points[n,it3[0]-1] = M1[0]
-        dr_mdt[n,it3] = M2
-        dr_mdt[n,it3[0]-1] = M2[0]
+        dr_points[n,it3-1] = M1
+#        dr_points[n,it3[0]-1] = M1[0]
+        dr_mdt[n,it3-1] = M2
+#        dr_mdt[n,it3[0]-1] = M2[0]
         dr_id.append(dr.id)
         dr_date0.append(dr.date_time[0])
         dr_time0.append(dr.time[0])
-    itracks = interpolated_tracks(dr_id,time,lon,lat,u,v,dr_date0,dr_time0,dr_points,dr_mdt, 
+    itracks = interpolated_tracks2(dr_id,time2,lon,lat,variance,u,v,dr_date0,dr_time0,dr_points,dr_mdt, 
                 drog_stat0,drog_stat,lastDrogTime,dLossDate,launchType)
     save_object(itracks,output)
 #    return itracks

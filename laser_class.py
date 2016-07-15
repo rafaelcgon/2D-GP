@@ -2,47 +2,37 @@ from datetime import datetime
 import numpy as np
 
 class drifter(object):
-    def __init__(self,drifter_id,date_time,time,lat,lon):
+    def __init__(self,drifter_id,date_time,time,lat,lon,droLossDate,droStat,launchType):
         self.id = drifter_id
         self.date_time = date_time
         self.time = time
         self.lat = lat
         self.lon = lon
+        self.drogueLoss = droLossDate
+        self.drogueStat = droStat
+        self.launchType = launchType
 #        self.timeStamp = drifter_timeStamp
 ##########################################################
 class interpolated_tracks(object):
-    def __init__(self,drifter_id,time,lon,lat,u,v,date0,time0,nsamples,mdt):
+    def __init__(self,drifter_id,time,lon,lat,u,v,date0,time0,nsamples,mdt,drog_stat0,
+                   drog_stat,lDrogueTime,dLossDate,launchType,variance=0):
         self.id = drifter_id      # drifter ID
         self.time = time          # interpolated time, in seconds
         self.date0 = date0        # date and time of first data collected
         self.time0 = time0        # time in seconds of first data collected
         self.lat = lat            # latitude [drifter,time]
         self.lon = lon            # longitude [drifter,time]
+        if (np.size(variance)>1): # uncertainty of pos estimate (posterior variance)
+           self.pos_var = variance # use only for kriging  
         self.u = u                # zonal velocity 
         self.v = v                # meridional velocity
         self.n_samples = nsamples # number of samples before timestep n after timestep n-1
         self.data_freq = mdt      # average data frequency btwn 2 time steps
-
-
-class interpolated_tracks2(object):
-    def __init__(self,dr_id,time,lon,lat,variance,u,v,date0,time0,nsamples,mdt, 
-                drog_stat0,drog_stat,lastDrogTime,dLossDate,launchType):
-        self.id = dr_id      # drifter ID
-        self.time = time          # interpolated time, in seconds
-        self.date0 = date0        # date and time of first data collected
-        self.time0 = time0        # time in seconds of first data collected
-        self.lat = lat            # latitude [drifter,time]
-        self.lon = lon            # longitude [drifter,time]
-        self.pos_var = variance   # uncertainty of pos estimate (posterior variance)
-        self.u = u                # zonal velocity 
-        self.v = v                # meridional velocity
-        self.n_samples = nsamples # number of samples before timestep n after timestep n-1
-        self.data_freq = mdt      # average data frequency btwn 2 time steps
-        self.drog_stat0 = drog_stat0
-        self.drog_stat = drog_stat
-        self.lastDrogTime = lastDrogTime
-        self.dlossDate = dLossDate
-        self.launchType = launchType
+        self.drogueStat0 = drog_stat0 # status according to file DrogueStatus-Jun11.dat
+        self.drogueStat = drog_stat # time series of the drogue status(0=undrogued, 1=drogued)
+        self.lastDrogueTime = lDrogueTime # last time with drogue (==-1 if didn't lose )
+        self.lossDate = dLossDate # date when drogue was lost
+        self.launchType = launchType # (1=LSS, 2=P1, 3=P2, 4=LDA, 5=drogue tests)
 ##########################################################
 class triangles(object):
     def __init__(self,time,Area,Sides,Nodes_id,Lon_n,Lat_n,

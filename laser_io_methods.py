@@ -1,6 +1,6 @@
 import numpy as np
 from datetime import datetime
-from laser_class import drifter,interpolated_tracks2
+from laser_class import drifter,interpolated_tracks
 import cPickle as pickle
 import os
 from dateutil.parser import parse
@@ -194,13 +194,13 @@ def interp_spline(filename='ALL_2016_2_7.pkl',dt=900,period=10,sp = 0.001):
     # period is the total period in days of the data to be interpolated
     # sp i the smoothing parameter for the cubic spline interpolation
 
-    output = 'interp_'+filename
-    data = read_object(filename)
+    output = 'spline_'+filename
+    data = read_object('/home/rgoncalves/LagOil/LASER/'+filename)
     # the first drifter released should be data[0]
 
     period_end = data[0].time[0] + period*86400 # last time step
-    time = np.arange(data[0].time[0],period_end,dt)
-
+    time = np.arange(data[0].time[1],period_end,dt)
+    time2 = (time-data[0].time[0])/3600.
 #    it = np.where((time>=dr.time[0])&(time<=dr.time[-1]))
 
     N = np.size(data)
@@ -256,22 +256,26 @@ def interp_spline(filename='ALL_2016_2_7.pkl',dt=900,period=10,sp = 0.001):
         dr_id.append(dr.id)
         dr_date0.append(dr.date_time[0])
         dr_time0.append(dr.time[0])
-    itracks = interpolated_tracks(dr_id,time,lon,lat,u,v,dr_date0,dr_time0,dr_points,dr_mdt, 
+    itracks = interpolated_tracks(dr_id,time2,lon,lat,u,v,dr_date0,dr_time0,dr_points,dr_mdt, 
                 drog_stat0,drog_stat,lastDrogTime,dLossDate,launchType)
     save_object(itracks,output)
 #    return itracks
 ##########################################################################################     
-def interp_kriging(filename='ALL_2016_2_7.pkl',dt=900,period=10):
+def interp_kriging(filename='ALL_2016_2_7.pkl',dt=900,period=10,checkError=0):
     # dt is the time step of the interpolated data
     # period is the total period in days of the data to be interpolated
     # sp i the smoothing parameter for the cubic spline interpolation
 
-    output = 'kriging_'+filename
-    data = read_object(filename)
+    output = 'kriging2_'+filename
+    data = read_object('/home/rgoncalves/LagOil/LASER/'+filename)
+    if checkError ==1:
+       with open('spline_'+filename,'rb') as input:
+            spl = pickle.load(input)
+       
     # the first drifter released should be data[0]
 
     period_end = data[0].time[0] + period*86400 # last time step
-    time = np.arange(data[0].time[0],period_end,dt)
+    time = np.arange(data[0].time[1],period_end,dt)
     time2 = (time-data[0].time[0])/3600. #time in hours 
     time2 = np.reshape(time2,[time2.size,1])
     timem= (time2[1:]+time2[0:-1])/2.
@@ -303,7 +307,7 @@ def interp_kriging(filename='ALL_2016_2_7.pkl',dt=900,period=10):
     dr_date0 = []
     dr_time0 = [] 
 # Loop over every drifter
-    kernel = GPy.kern.RBF(input_dim=1, variance=1163.67, lengthscale=3.5)
+    kernel = GPy.kern.RBF(input_dim=1, variance=1159.68, lengthscale=4.5)
     for n in range(N):  
         print n
         print kernel
@@ -313,16 +317,36 @@ def interp_kriging(filename='ALL_2016_2_7.pkl',dt=900,period=10):
         it3 = it[0][1:]
 # gaussian process interpolation
         X = np.array(dr.time)[it2]
-        X = (np.reshape(X,[X.size,1])-data[0].time[0])/3600.
         Y1 = np.array(dr.lon)[it2]
         Y2 = np.array(dr.lat)[it2]
+        if (it2[0][0] > 0):
+          X = np.concatenate([np.array([dr.time[it2[0][0]-1]]),X])
+          Y1 = np.concatenate([np.array([dr.lon[it2[0][0]-1]]),Y1])
+          Y2 = np.concatenate([np.array([dr.lat[it2[0][0]-1]]),Y2])         
+        if (dr.time[-1] > X[-1]):
+          X = np.concatenate([X,np.array([dr.time[it2[0][-1]+1]])])
+          Y1 = np.concatenate([Y1,np.array([dr.lon[it2[0][-1]+1]])])
+          Y2 = np.concatenate([Y2,np.array([dr.lat[it2[0][-1]+1]])])         
+
+        X = (np.reshape(X,[X.size,1])-data[0].time[0])/3600.
         Y = np.array([Y1,Y2]).T
         model = GPy.models.GPRegression(X,Y,kernel)
+        model.Gaussian_noise = 1.75598244486e-07 # got from previous experiments
 #        model.optimize(messages=True)
         variables,vari = model.predict(time2[it])
-        variance[n,it] = vari.T
         lon[n,it] = variables[:,0]
         lat[n,it] = variables[:,1]   
+        if checkError==1:
+           error_lo = np.square(lon[n,:]-spl.lon[n,:])
+           error_la = np.square(lat[n,:]-spl.lat[n,:])
+           rmse_lon = np.sqrt(np.nanmean(error_lo))
+           rmse_lat = np.sqrt(np.nanmean(error_la))
+           if ((rmse_lon>1e-3)|(rmse_lat>1e-3)):           
+              model.optimize(messages=True)
+              variables,vari = model.predict(time2[it]) 
+              print model
+              kernel = GPy.kern.RBF(input_dim=1, variance=1159.68, lengthscale=4.5)
+        variance[n,it] = vari.T
 # variance is sigma**2!
 # variance * np.exp(-np.square(x-xo)/(2*np.square(lengthscale))))
 #
@@ -364,8 +388,8 @@ def interp_kriging(filename='ALL_2016_2_7.pkl',dt=900,period=10):
         dr_id.append(dr.id)
         dr_date0.append(dr.date_time[0])
         dr_time0.append(dr.time[0])
-    itracks = interpolated_tracks2(dr_id,time2,lon,lat,variance,u,v,dr_date0,dr_time0,dr_points,dr_mdt, 
-                drog_stat0,drog_stat,lastDrogTime,dLossDate,launchType)
+    itracks = interpolated_tracks(dr_id,time2,lon,lat,u,v,dr_date0,dr_time0,dr_points,dr_mdt, 
+                drog_stat0,drog_stat,lastDrogTime,dLossDate,launchType,variance)
     save_object(itracks,output)
 #    return itracks
 

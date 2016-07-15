@@ -1,0 +1,91 @@
+\documentclass[12pt,a4paper]{article}%[a4paper,portuguese,12pt,pdftex]{article} %article
+\usepackage{ucs}
+\usepackage{amsfonts}		 		% usar fontes p/ REAL,IMAGINARIO,etc
+\usepackage{indentfirst}			% espacamento no 1o. paragrafo
+\usepackage[utf8x]{inputenc} 
+\usepackage{amssymb,amsmath}			% pacote simbolos e matematico AMS
+\usepackage{textcomp}
+\usepackage{natbib}				% estilo de citacao no texto
+\usepackage{wasysym}
+\usepackage{fancyhdr}
+\renewcommand{\baselinestretch}{1.5}		% espaco entre linhas
+\topmargin -1cm					% margem superior
+\oddsidemargin 0.5cm				% margem esquerda
+\textwidth 15cm					% largura da pagina
+\textheight 23.7cm				% altura da pagina
+\usepackage{color}
+\usepackage{lscape}
+\usepackage{graphicx}
+\usepackage{epsfig}
+
+\title{Learning velocity fields from sparse data using Gaussian Process}
+\author{Rafael Gon\c{c}alves}
+
+\begin{document}
+
+\section{Interpolation of drifters' tracks and estimative of velocity}
+
+The drifters from the LASER experiment provided positions at intervals of approximatly 5 minutes. 
+These intervals may vary largelly due to the state of the GPS sensors (e.g. low battery) or due to 
+the sea state, as waves might flip the undrogued drifters, interrupting the GPS transmission.
+The interpolation of the drifters' positions is carried out in order to have all drifters' tracks in 
+the same regular time frame. Here, two different approaches were considered for the interpolation: the 
+B-spline function and Gaussian Process regression. In both cases, the time series of Longitude and Latitude 
+recorded by each drifter is interpolated in a time frame with 10 minutes resolution.
+
+In our first approach, we used cubic B-splines. The formalism of the algorithm applied for the B-spline 
+interpolation is described in \cite{Dierckx1975,Dierckx1981,Dierckx1982,Dierckx1993}. The algorithm uses a 
+smoothing condition $S$, for which the interpolated curve must satisfy:
+
+\begin{equation}
+ \sum_{i=0}^N((y_i - g_i))^2 \le S
+\end{equation}
+
+where $g$ is the smoothed interpolation of $y$, and $N$ is the number of data points used. 
+The amount of smoothing alowed by $S$ should be enough to smooth out spikes that might occur 
+due to the GPS positioning uncertainty \citep{Haza20?}, and also to avoid overfitting and ill-posed 
+problems \citep{Dierckx1981}. Here, the time series of Latitude and Longitude were 
+interpolated with $S=0.001$. One example of an interpolated drifter track is shown on Figure \ref{fig-track}.
+The B-spline algorithm enables the computation of its derivatives (see \cite{Dierckx1975}). 
+The first derivative of the Longitude and Latitude B-splines were used to compute the zonal and meridional 
+components of the Lagrangian velocities.
+
+In the Gaussian process regression approach, the time series of Longitude and Latitude of each drifter are 
+treated as separate Gaussian processes, so that the hyperparameters of their covariance functions can 
+be set with different values. Here, we apply the squared exponential covariance function:
+
+\begin{equation}
+ k(t_i,t_j) = \sigma^2 exp(-\frac{(t_i-t_j)^2}{2\tau^2}) % + \sigma_N\delta_{ij}
+\end{equation}
+
+where t is time, $\sigma$ is the variance and $\tau$ is a decorrelation time scale. %, and $\sigma_N\delta_{ij}$ 
+ 
+
+\begin{figure}
+\noindent\includegraphics[width=36pc]{drifter_tracks.png}
+\caption{The positions recorded by one drifter over 2 days (black dots) and interpolated 
+positions using the cubic B-spline (blue dots) and Gaussian Process (red dots).}
+\label{fig-track}
+\end{figure}
+
+\begin{figure}
+\noindent\includegraphics[width=36pc]{velocity_components.png}
+\caption{Lagrangian velocity components estimated from the cubic B-spline interpolation (blue) 
+and from the Gaussian Process (red).}
+\label{fig-track}
+\end{figure}
+
+
+\end{document}
+
+
+%1] P. Dierckx, "An algorithm for smoothing, differentiation and
+%   integration of experimental data using spline functions",
+%   J.Comp.Appl.Maths 1 (1975) 165-184.
+%.. [2] P. Dierckx, "A fast algorithm for smoothing data on a rectangular
+%   grid while using spline functions", SIAM J.Numer.Anal. 19 (1982)
+%   1286-1304.
+%.. [3] P. Dierckx, "An improved algorithm for curve fitting with spline
+%   functions", report tw54, Dept. Computer Science,K.U. Leuven, 1981.
+%.. [4] P. Dierckx, "Curve and surface fitting with splines", Monographs on
+%   Numerical Analysis, Oxford University Press, 1993.

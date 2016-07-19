@@ -18,30 +18,30 @@
 \usepackage{graphicx}
 \usepackage{epsfig}
 
-\title{Learning velocity fields from sparse data using Gaussian Process}
+\title{Learning velocity fields from sparse data using Gaussian process regression}
 \author{Rafael Gon\c{c}alves}
 
 \begin{document}
 
-\section{Interpolation of drifters' tracks and estimative of velocity}
+\section{Interpolation of drifters tracks and Lagrangian velocity estimates}
 
-The drifters from the LASER experiment provided positions at intervals of approximatly 5 minutes. 
-These intervals may vary largelly due to the state of the GPS sensors (e.g. low battery) or due to 
+The drifters from the LASER experiment provided positions at intervals of approximately 5 minutes. 
+These intervals may vary considerably due to the state of the GPS sensors (e.g. low battery) or due to 
 the sea state, as waves might flip the undrogued drifters, interrupting the GPS transmission.
-The interpolation of the drifters' positions is carried out in order to have all drifters' tracks in 
+The interpolation of the positions of the drifters is carried out in order to have all drifters' tracks in 
 the same regular time frame. Here, two different approaches were considered for the interpolation: the 
 B-spline function and Gaussian Process regression. In both cases, the time series of Longitude and Latitude 
-recorded by each drifter is interpolated in a time frame with 10 minutes resolution.
+recorded by each drifter are interpolated in a time frame with 10 minutes resolution.
 
-In our first approach, we used cubic B-splines. The formalism of the algorithm applied for the B-spline 
-interpolation is described in \cite{Dierckx1975,Dierckx1981,Dierckx1982,Dierckx1993}. The algorithm uses a 
+For the B-splines interpolation, we used an algorithm that follows the formalism described in 
+\cite{Dierckx1975,Dierckx1981,Dierckx1982,Dierckx1993}. The algorithm uses a 
 smoothing condition $S$, for which the interpolated curve must satisfy:
 
 \begin{equation}
- \sum_{i=0}^N((y_i - g_i))^2 \le S
+ \sum_{i=0}^N(y_i - f_i)^2 \le S
 \end{equation}
 
-where $g$ is the smoothed interpolation of $y$, and $N$ is the number of data points used. 
+where $f$ is the smoothed interpolation of $y$, and $N$ is the number of data points used. 
 The amount of smoothing alowed by $S$ should be enough to smooth out spikes that might occur 
 due to the GPS positioning uncertainty \citep{Haza20?}, and also to avoid overfitting and ill-posed 
 problems \citep{Dierckx1981}. Here, the time series of Latitude and Longitude were 
@@ -50,16 +50,41 @@ The B-spline algorithm enables the computation of its derivatives (see \cite{Die
 The first derivative of the Longitude and Latitude B-splines were used to compute the zonal and meridional 
 components of the Lagrangian velocities.
 
-In the Gaussian process regression approach, the time series of Longitude and Latitude of each drifter are 
-treated as separate Gaussian processes, so that the hyperparameters of their covariance functions can 
-be set with different values. Here, we apply the squared exponential covariance function:
+In the Gaussian process regression approach, the quantity of interest is thought as a stochastic process in which 
+any finite number of samples have a joint Gaussian distribution \citep{Rasmussen2006}. The Gaussian process is completely 
+defined by a mean function and a covariance function. Considering a set of observations $O=(\bf{T},\bf{Y})$, where 
+$\bf{Y}$ is a vector with Latitudes or Longitudes recorded by a drifter at times $\bf{T}$, the mean function of 
+the Gaussian process is given by:
 
 \begin{equation}
- k(t_i,t_j) = \sigma^2 exp(-\frac{(t_i-t_j)^2}{2\tau^2}) % + \sigma_N\delta_{ij}
+ f(\bf{T_*}) = K(\bf{T_*},\bf{T})(K(\bf{T},\bf{T}) + \sigma_N^2I)^{-1}Y 
+\end{equation}
+Where $f$ is the estimate of Latitude or Longitude at times $\bf{T_*}$, $K$ is the covariance matrix, 
+$\sigma_N$ is a noise amplitude considered for the observations, and $I$ is the identity matrix. 
+The entries of $K$ are given by the covariance function $k$, which here is the squared exponential:
+\begin{equation}
+ k(t_i,t_j) = \sigma^2 exp(-\frac{(t_i-t_j)^2}{2\tau^2}) 
 \end{equation}
 
-where t is time, $\sigma$ is the variance and $\tau$ is a decorrelation time scale. %, and $\sigma_N\delta_{ij}$ 
- 
+where t is time, $\sigma$ is the variance and $\tau$ is a decorrelation time scale. 
+
+The time series of Longitude and Latitude of each drifter are 
+treated as separate Gaussian processes, so that the hyperparameters ($\sigma_N$, $\sigma$ and $\tau$) of 
+their respective covariance functions can be set with different values. 
+The first guess of the hyperparameters is arbitrary, then they are optimized by minimizing the log marginal 
+likelihood $log p(\bf{Y}|\bf{T},\sigma_N,\sigma,\tau)$ \citep{Rasmussen2006}. Histograms with the posterior 
+values of the hyperparameters of each drifter are presented on Figure \reg{fig-hyperparam}.
+
+In order to compare both methods, a root-mean-squared difference was computed for each time $t$.
+\begin{equation}
+ r(t) = \sqrt{\frac{1}{N}\sum_{i=1}^N(g_i(t) - f_i(t))^2}
+\end{equation}
+
+Where $g_i$ is the B-spline estimate of the Latitude or Longitude of the i-th drifter, $f_i$ is the 
+respective Gaussian process estimate, and N is the total number of drifters used. Figure \ref{fig-rms1} 
+presents the time series of $r$ considering all 330 drifters available (drogued and undrogued). 
+
+
 
 \begin{figure}
 \noindent\includegraphics[width=36pc]{drifter_tracks.png}
@@ -75,6 +100,11 @@ and from the Gaussian Process (red).}
 \label{fig-track}
 \end{figure}
 
+\begin{figure}
+\noindent\includegraphics[width=36pc]{hyp_histograms.png}
+\caption{Histograms with values of hyperparameters for each drifter.  }
+\label{fig-hyperparam}
+\end{figure}
 
 \end{document}
 

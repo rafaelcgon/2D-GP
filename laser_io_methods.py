@@ -316,19 +316,20 @@ def interp_kriging(filename='ALL_2016_2_7.pkl',dt=900,period=10,checkError=0):
         it2 = np.where((dr.time>=time[it][0])&(dr.time<=time[it][-1]))
         it3 = it[0][1:]
 # gaussian process interpolation
-        X = np.array(dr.time)[it2]
-        Y1 = np.array(dr.lon)[it2]
-        Y2 = np.array(dr.lat)[it2]
+        X = np.array(dr.time)[it2][:,None]
+        Y1 = np.array(dr.lon)[it2][:,None]
+        Y2 = np.array(dr.lat)[it2][:,None]
         if (it2[0][0] > 0):
-          X = np.concatenate([np.array([dr.time[it2[0][0]-1]]),X])
-          Y1 = np.concatenate([np.array([dr.lon[it2[0][0]-1]]),Y1])
-          Y2 = np.concatenate([np.array([dr.lat[it2[0][0]-1]]),Y2])         
+          X = np.concatenate([np.array([dr.time[it2[0][0]-1]])[:,None],X],axis=0)
+          Y1 = np.concatenate([np.array([dr.lon[it2[0][0]-1]])[:,None],Y1],axis=0)
+          Y2 = np.concatenate([np.array([dr.lat[it2[0][0]-1]])[:,None],Y2],axis=0)  
+          Y2 = np.concatenate([np.array([dr.lat[it2[0][0]-1]])[:,None],Y2],axis=0)      
         if (dr.time[-1] > X[-1]):
-          X = np.concatenate([X,np.array([dr.time[it2[0][-1]+1]])])
-          Y1 = np.concatenate([Y1,np.array([dr.lon[it2[0][-1]+1]])])
-          Y2 = np.concatenate([Y2,np.array([dr.lat[it2[0][-1]+1]])])         
+          X = np.concatenate([X,np.array([dr.time[it2[0][-1]+1]])[:,None]],axis=0)
+          Y1 = np.concatenate([Y1,np.array([dr.lon[it2[0][-1]+1]])[:,None]],axis=0)
+          Y2 = np.concatenate([Y2,np.array([dr.lat[it2[0][-1]+1]])[:,None]],axis=0)         
 
-        X = (np.reshape(X,[X.size,1])-data[0].time[0])/3600.
+        X = (X-data[0].time[0])/3600.
         Y = np.array([Y1,Y2]).T
         model = GPy.models.GPRegression(X,Y,kernel)
         model.Gaussian_noise = 1.75598244486e-07 # got from previous experiments

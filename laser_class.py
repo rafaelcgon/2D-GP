@@ -15,15 +15,24 @@ class drifter(object):
 ##########################################################
 class interpolated_tracks(object):
     def __init__(self,drifter_id,time,lon,lat,u,v,date0,time0,nsamples,mdt,drog_stat0,
-                   drog_stat,lDrogueTime,dLossDate,launchType,variance=0):
+                   drog_stat,lDrogueTime,dLossDate,launchType,varLon=0,varLat=0,
+                   lenLon=0,lenLat=0,varianceLon=0,varianceLat=0,noiseLon=0,noiseLat=0):
         self.id = drifter_id      # drifter ID
         self.time = time          # interpolated time, in seconds
         self.date0 = date0        # date and time of first data collected
         self.time0 = time0        # time in seconds of first data collected
         self.lat = lat            # latitude [drifter,time]
         self.lon = lon            # longitude [drifter,time]
-        if (np.size(variance)>1): # uncertainty of pos estimate (posterior variance)
-           self.pos_var = variance # use only for kriging  
+        if (np.size(varLon)>1): # uncertainty of pos estimate (posterior variance)
+           self.pos_varLon = varLon # use only for kriging
+           self.pos_varLat = varLat
+       # optimized hyperparameters for each drifter
+           self.lenLon = lenLon
+           self.lenLat = lenLat
+           self.varianceLon = varianceLon
+           self.varianceLat = varianceLat
+           self.noiseLon = noiseLon
+           self.noiseLat = noiseLat
         self.u = u                # zonal velocity 
         self.v = v                # meridional velocity
         self.n_samples = nsamples # number of samples before timestep n after timestep n-1

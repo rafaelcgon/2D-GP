@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt               #
 from matplotlib import rc,rcParams
 import matplotlib as mpl 
 from GP_scripts import *
-
+import GPy
 rc('text',usetex=True)
 ####################################################################
 def unit_vector(vector,ax=-1):
@@ -24,7 +24,7 @@ def get_angle(v,ax=1):
            - Vector v should have 2 components v[0]--> x comp; v[1]--> y comp.
            - For several vectors: 
                 * the components should be arranged as vel = np.array([um,vm]).T
-                  where um and vm are 1D arrays with the each vector component.
+                  where um and vm are 1D arrays with each vector component.
            - The northward unit vector is used as reference.
     """
     vu = unit_vector(v,ax)
@@ -608,3 +608,96 @@ def twoVectors(sigma = 0.2):
             plot.tick_params(axis='both',which='major',labelsize=FS2)
             jk+=1
       pl.savefig(filename, bbox_inches=0)
+
+#####################################################################
+def RMSEperNsamples(N=10000):
+   rmse_u = np.zeros(N)
+   rmse_v = np.zeros(N)
+   rx_u = np.zeros(N)
+   ry_u = np.zeros(N)
+   rx_v = np.zeros(N)
+   ry_v = np.zeros(N)
+   nsamples = np.zeros(N)
+   for n in range(N):
+      nsamples[n] = np.random.randint(4,21)
+      print n,'/',N, nsamples[n]
+      X1s,X2s,ug,vg,rmsu,rmsv,u_HP,v_HP,X = run_example2(nsamples[n])
+      rmse_u[n]=rmsu
+      rmse_v[n]=rmsv
+      rx_u[n]=u_HP[1]
+      ry_u[n]=u_HP[3]
+      rx_v[n]=v_HP[1]
+      ry_v[n]=v_HP[3]
+   return nsamples,rmse_u,rmse_v,rx_u,ry_u,rx_v,ry_v 
+#####################################################################
+def run_example2(nsamples = 5,divFree = 1):
+   x,y,phi,xm,ym,um,vm = generate_2D_gaussian(divFree)
+   
+   X1,X2=np.meshgrid(xm,ym)
+   X1 = np.reshape(X1,[X1.size,1])
+   X2 = np.reshape(X2,[X2.size,1])
+   X = np.concatenate([X1,X2],axis=1)
+   um = np.reshape(um,[-1])
+   vm = np.reshape(vm,[-1])
+# generate random samples
+   
+   samples = np.random.randint(0,X1.size,nsamples)
+   x1 = X1[samples]
+   x2 = X2[samples]
+   y1 = um[samples][:,None]
+   y2 = vm[samples][:,None]
+   X = np.concatenate([x1,x2],axis=1)
+
+#   y = np.concatenate([y1,y2])
+#   y = np.reshape(y,[y.size,1])
+
+   x1s = xm #np.arange(x1.min(),x1.max(),0.1)
+   x2s = ym #np.arange(x2.min(),x2.max(),0.1)
+   X1s,X2s = np.meshgrid(x1s,x2s)   
+   X1s = np.reshape(X1s,[X1s.size,1])
+   X2s = np.reshape(X2s,[X2s.size,1])
+   Xg = np.concatenate([X1s,X2s],axis=1)
+
+   r1 = 0.1
+   sig1 = 5
+   r2 = 0.1
+   sig2 = 5
+   noise = 0.0002
+   k1 = GPy.kern.RBF(input_dim=1, active_dims=[0], variance=sig1, lengthscale=r1)
+   k2 = GPy.kern.RBF(input_dim=1, active_dims=[1], variance=sig2, lengthscale=r2)
+   k = k1 * k2
+##
+   model_u = GPy.models.GPRegression(X,y1,k)
+#   model_u.Gaussian_noise = noise # got from previous experiments
+   model_u.optimize()   
+   model_u.optimize_restarts()
+   ug,ugVar = model_u.predict(Xg)
+   u_HP = model_u.param_array
+##
+   model_v = GPy.models.GPRegression(X,y2,k)
+#   model_v.Gaussian_noise = noise # got from previous experiments
+   model_v.optimize()   
+   model_u.optimize_restarts()
+   vg,vgVar = model_v.predict(Xg)
+   v_HP = model_v.param_array
+
+# errors by component
+   rmsu1,rmsv1 = rmse(X1s,X2s,ug,vg,X1,X2,um,vm,knd = '')
+
+   return X1s,X2s,ug,vg,rmsu1,rmsv1,u_HP,v_HP,X
+
+
+#   err_u1,ds = absoluteError(um,ug,X1s,X2s,x1,x2)
+#   err_v1,ds = absoluteError(vm,vg,X1s,X2s,x1,x2)
+
+# errors by magnitude and angle
+#   absVel = np.sqrt(np.square(um)+np.square(vm))  
+#   angle =  get_angle(np.array([um,vm]).T)
+
+#   absVel1 = np.sqrt(np.square(ug)+np.square(vg))   
+#   angle1 =  get_angle(np.array([np.reshape(ug,[-1]),np.reshape(vg,[-1])]).T)
+#   err_vel1,ds = absoluteError(absVel,absVel1,X1s,X2s,x1,x2)
+#   err_ang1,ds = absoluteError(angle,angle1,X1s,X2s,x1,x2)
+#   err_ang1[np.where(err_ang1>180)]=360-err_ang1[np.where(err_ang1>180)]
+
+

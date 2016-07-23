@@ -29,7 +29,10 @@ def nonDivK(xa,xb,sigma,divFree=1):
    else:
       A = np.square(sigma) # for a simple square exponential
    return np.square(1./sigma)*np.exp(-C/2.)*A # D by D K matrix 
-#####################################################
+#################################################################
+#def tensorProd(K1,K2):
+
+#################################################################
 def compute_K(x1,x2,sigma,divFree=1): # compute K matrix at sample inputs x1,x2
    N = np.size(x1) # number of samples
    D = 2  # dimensions

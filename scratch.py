@@ -4,6 +4,17 @@ from datetime import datetime
 
 # document to modify or create new scripts
 # All scripts should be copied to their original .py file
+class laser(object):
+    def __init__(self,drifters):
+        self.id = drifters[0]
+        self.datetime = drifters[1] 
+        self.time = drifters[2]
+        self.lat = drifters[3]
+        self.lon = drifters[4]
+        self.posErr = drifters[5]
+        self.u = drifters[6]
+        self.v = drifters[7]
+        self.velErr = drifters[8]
 
 def storeDrifter(drif,did,ddatetime,dtime,dlat,dlon,dposErr,du,dv,dvelErr):
    print did
@@ -130,6 +141,87 @@ def readFilteredTracks(): # laser_io_methods.py
               drifters = storeDrifter(drifters,dr_id,dr_datetime,
                                       dr_time,dr_lat,dr_lon,dr_posErr,dr_u,dr_v,dr_velErr)
         n+=1 
-        print n 
+#        print n 
     return drifters
+###################################################################################################
+
+def constructField(st,et):
+
+   with open('Filtered_2016_2_7.pkl','rb') as input:
+       tr = pickle.load(input)
+
+   time = (tr.time[st:et] - tr.time[st])/3600. # time in hours    
+   latt = tr.lat[st:et,:]
+   lont = tr.lon[st:et,:]
+
+   uob = tr.u[st:et,:]
+   vob = tr.v[st:et,:]
+   # origin of cartesian coord.
+   lat0 = 28.8
+   lon0 = -88.55
+   NAD83=pyproj.Proj("+init=EPSG:3452") #Louisiana South (ftUS)
+   xob,yob=NAD83(lont,latt)
+   xob[np.where(np.isnan(lont))]=np.nan
+   yob[np.where(np.isnan(lont))]=np.nan
+
+   to = np.repeat(time,np.size(latt,1),axis=1)
+   to = np.reshape(to,[-1,1])
+   xo = np.reshape(xob,[-1,1])/1000. # in km
+   yo = np.reshape(yob,[-1,1])/1000. # in km
+   uo = np.reshape(uob,[-1,1])
+   vo = np.reshape(vob,[-1,1])
+
+   validPoints = np.where((~np.isnan(xo))&(~np.isnan(yo)))
+   uo = uo[validPoints]
+   vo = vo[validPoints]
+   xo = xo[validPoints]
+   yo = yo[validPoints] 
+   to = to[validPoints] 
+   xo = xo-xo.min() + 2
+   yo = yo-yo.min() + 2
+   X = np.concatenate([to,xo,yo],axis=1)
+
+   rx = 0.1
+   sigx = 5
+   ry = 0.1
+   sigy = 5
+   rt = 1.
+   sigy = 5
+   noise = 0.0002
+#########
+# GRID check size of the final matrix Xrg (reshaped grid)
+   dt = 0.5
+   dx = 0.5
+   xg = np.arange(xo.min()-5,xo.max()+5,dx)
+   yg = np.arange(yo.min()-5,yo.max()+5,dx)
+   tg = np.arange(to.min(),to.max(),dt)
+   Tg,Xg,Yg = np.meshgrid(tg,xg,yg) # check if this works
+   Tr = np.reshape(Tg,[Tg.size])
+   Xr = np.reshape(Xg,[Xg.size])
+   Yr = np.reshape(Yg,[Yg.size]) 
+   Xrg = np.concatenate(Tr,Xr,Yr)
+# Compute covariances
+
+   kt = GPy.kern.RBF(input_dim=1, active_dims=[0], variance=sigt, lengthscale=rt)
+   kx = GPy.kern.RBF(input_dim=1, active_dims=[1], variance=sigx, lengthscale=rx)
+   ky = GPy.kern.RBF(input_dim=1, active_dims=[2], variance=sigy, lengthscale=ry)
+   k = kt * kx * ky 
+## Compute U
+   model_u = GPy.models.GPRegression(X,uo,k)
+#   model_u.Gaussian_noise = noise # got from previous experiments
+   model_u.optimize()   
+   model_u.optimize_restarts()
+   ug,ugVar = model_u.predict(Xrg)
+   uHP = model_u.param_array
+##
+   model_v = GPy.models.GPRegression(X,y2,k)
+#   model_v.Gaussian_noise = noise # got from previous experiments
+   model_v.optimize()   
+   model_u.optimize_restarts()
+   vg,vgVar = model_v.predict(Xrg)
+   vHP = model_v.param_array
+
+   return tg,xg,yg,ug,ugVar,uHP,vg,vgVar,vHP
+
+
 

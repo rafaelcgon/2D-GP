@@ -1,6 +1,17 @@
 from datetime import datetime
 import numpy as np
-
+class laser(object):
+    def __init__(self,drifters):
+        self.id = drifters[0]
+        self.datetime = drifters[1] 
+        self.time = drifters[2]
+        self.lat = drifters[3]
+        self.lon = drifters[4]
+        self.posErr = drifters[5]
+        self.u = drifters[6]
+        self.v = drifters[7]
+        self.velErr = drifters[8]
+###########################################################################################
 class drifter(object):
     def __init__(self,drifter_id,date_time,time,lat,lon,droLossDate,droStat,launchType):
         self.id = drifter_id

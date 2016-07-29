@@ -95,8 +95,8 @@ def readFilteredTracks(initdate = datetime(2016,02,07,0,0,0)): # laser_io_method
 # L_0004 2016-01-21 18:45:00.216001  29.03776831107 -87.68717800671    10.9 0.016 0.389 0.033
     
     output = 'Filtered'+'_'+str(initdate.year)+'_'+str(initdate.month)+'_'+str(initdate.day)+'.pkl'
-#    f = open('/home/rgoncalves/LagOil/LASER/Filtered_data/carthe_laser_spot_drifters_clean_v01.dat')
-    f = open('carthe_laser_spot_drifters_clean_v01.dat')
+    f = open('/home/rgoncalves/LagOil/LASER/Filtered_data/carthe_laser_spot_drifters_clean_v01.dat')
+#    f = open('carthe_laser_spot_drifters_clean_v01.dat')
     Lines = f.readlines()
 
     dr_id = ''

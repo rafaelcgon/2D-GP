@@ -1,7 +1,12 @@
 import numpy as np
 from datetime import datetime
-
-
+import cPickle as pickle
+import GPy
+import mpl_toolkits.basemap.pyproj as pyproj
+from matplotlib import pyplot as plt
+from matplotlib import animation
+from matplotlib import rc,rcParams
+rc('text',usetex=True)
 # document to modify or create new scripts
 # All scripts should be copied to their original .py file
 class laser(object):
@@ -145,15 +150,22 @@ def readFilteredTracks(): # laser_io_methods.py
     return drifters
 ###################################################################################################
 
-def constructField(st,et):
+def constructField(st,et,sample_step=5):
 
    with open('Filtered_2016_2_7.pkl','rb') as input:
        tr = pickle.load(input)
+   # drifter L_0937 has a strage velocities on its first 2-3 steps
+   # this drifter is index 238 on file 'Filtered_2016_2_7.pkl'
+   # to check, figure(); quiver(tr.lon[8:20,238],tr.lat[8:20,238],tr.u[8:20,238],tr.v[8:20,238])
+   # exclude data from this drifter using NaN
+   tr.lat[:,238] = np.nan
+   tr.lon[:,238] = np.nan
+   tr.u[:,238] = np.nan
+   tr.v[:,238] = np.nan
 
    time = (tr.time[st:et] - tr.time[st])/3600. # time in hours    
    latt = tr.lat[st:et,:]
-   lont = tr.lon[st:et,:]
-
+   lont = tr.lon[st:et,:] 
    uob = tr.u[st:et,:]
    vob = tr.v[st:et,:]
    # origin of cartesian coord.
@@ -164,64 +176,310 @@ def constructField(st,et):
    xob[np.where(np.isnan(lont))]=np.nan
    yob[np.where(np.isnan(lont))]=np.nan
 
-   to = np.repeat(time,np.size(latt,1),axis=1)
+   to = time[:,None]; to = np.repeat(to,np.size(latt,1),axis=1)
    to = np.reshape(to,[-1,1])
    xo = np.reshape(xob,[-1,1])/1000. # in km
    yo = np.reshape(yob,[-1,1])/1000. # in km
    uo = np.reshape(uob,[-1,1])
    vo = np.reshape(vob,[-1,1])
+   if sample_step>0: # not use all data
+      samples = np.arange(0,xo.size,sample_step) #np.random.randint(0,xo.size,nsamples)
+      test = set(np.arange(xo.size)) - set(samples)
+      test = np.array(list(test))
+      xt = xo[test] # use to compute error
+      yt = yo[test]
+      tt = to[test]
+      ut = uo[test]
+      vt = vo[test]
+      xo = xo[samples]
+      yo = yo[samples]
+      to = to[samples]
+      uo = uo[samples]
+      vo = vo[samples]
+
 
    validPoints = np.where((~np.isnan(xo))&(~np.isnan(yo)))
-   uo = uo[validPoints]
-   vo = vo[validPoints]
-   xo = xo[validPoints]
-   yo = yo[validPoints] 
-   to = to[validPoints] 
+   uo = uo[validPoints]; uo = uo[:,None]
+   vo = vo[validPoints]; vo = vo[:,None]
+   xo = xo[validPoints]; xo = xo[:,None]
+   yo = yo[validPoints]; yo = yo[:,None]
+   to = to[validPoints]; to = to[:,None]
    xo = xo-xo.min() + 2
    yo = yo-yo.min() + 2
-   X = np.concatenate([to,xo,yo],axis=1)
+# From here on, always use T,Y,X order
+   X = np.concatenate([to,yo,xo],axis=1)
 
    rx = 0.1
    sigx = 5
    ry = 0.1
    sigy = 5
    rt = 1.
-   sigy = 5
+   sigt = 5
    noise = 0.0002
 #########
 # GRID check size of the final matrix Xrg (reshaped grid)
    dt = 0.5
    dx = 0.5
-   xg = np.arange(xo.min()-5,xo.max()+5,dx)
-   yg = np.arange(yo.min()-5,yo.max()+5,dx)
-   tg = np.arange(to.min(),to.max(),dt)
-   Tg,Xg,Yg = np.meshgrid(tg,xg,yg) # check if this works
-   Tr = np.reshape(Tg,[Tg.size])
-   Xr = np.reshape(Xg,[Xg.size])
-   Yr = np.reshape(Yg,[Yg.size]) 
-   Xrg = np.concatenate(Tr,Xr,Yr)
-# Compute covariances
+   if (xo.max()-xo.min())>40.:
+      xmin = xo.mean() - 20
+      xmax = xo.mean() + 20
+      print 'here x'
+   else:
+      xmin = xo.min()- dx
+      xmax = xo.max() + dx
+ 
+   if (yo.max()-yo.min())>40.:
+      ymin = yo.mean() - 20
+      ymax = yo.mean() + 20
+      print 'here y'
+   else:
+      ymin = yo.min() - dx
+      ymax = yo.max() + dx
 
+   xg = np.arange(xmin,xmax,dx)
+   yg = np.arange(ymin,ymax,dx)
+   tg = np.arange(to.min(),to.max(),dt)
+
+   Yg,Tg,Xg = np.meshgrid(yg,tg,xg) # Works
+   #  1st index vary with T
+   #  2nd index vary with Y
+   #  3rd index vary with X
+
+   Tr = np.reshape(Tg,[Tg.size,1])
+   Yr = np.reshape(Yg,[Yg.size,1]) 
+   Xr = np.reshape(Xg,[Xg.size,1])
+   Xrg = np.concatenate([Tr,Yr,Xr],axis=1)
+# Compute covariances
+# Pay attention on the order T,Y,X
    kt = GPy.kern.RBF(input_dim=1, active_dims=[0], variance=sigt, lengthscale=rt)
-   kx = GPy.kern.RBF(input_dim=1, active_dims=[1], variance=sigx, lengthscale=rx)
-   ky = GPy.kern.RBF(input_dim=1, active_dims=[2], variance=sigy, lengthscale=ry)
-   k = kt * kx * ky 
+   ky = GPy.kern.RBF(input_dim=1, active_dims=[1], variance=sigy, lengthscale=ry)
+   kx = GPy.kern.RBF(input_dim=1, active_dims=[2], variance=sigx, lengthscale=rx)
+   k = kt * ky * kx 
+   print k
+## Compute V
+   model_v = GPy.models.GPRegression(X,vo,k)
+#   model_v.Gaussian_noise = noise # got from previous experiments
+   model_v.optimize()   
+   print model_v
+   model_v.optimize_restarts()
+   print model_v
+   vg,vgVar = model_v.predict(Xrg)
+   vHP = model_v.param_array
+
 ## Compute U
    model_u = GPy.models.GPRegression(X,uo,k)
 #   model_u.Gaussian_noise = noise # got from previous experiments
    model_u.optimize()   
+   print model_u
    model_u.optimize_restarts()
+   print model_u
+
    ug,ugVar = model_u.predict(Xrg)
    uHP = model_u.param_array
-##
-   model_v = GPy.models.GPRegression(X,y2,k)
-#   model_v.Gaussian_noise = noise # got from previous experiments
-   model_v.optimize()   
-   model_u.optimize_restarts()
-   vg,vgVar = model_v.predict(Xrg)
-   vHP = model_v.param_array
+   uHP_names = model_u.parameter_names()
 
-   return tg,xg,yg,ug,ugVar,uHP,vg,vgVar,vHP
+   vg = np.reshape(vg,[tg.size,yg.size,-1])
+   ug = np.reshape(ug,[tg.size,yg.size,-1])
+   vgVar = np.reshape(vgVar,[tg.size,yg.size,-1])
+   ugVar = np.reshape(ugVar,[tg.size,yg.size,-1])
+
+
+   return tg,yg,xg,vg,ug,vgVar,ugVar,vHP,uHP
+
+###########################################################################################
+
+def animateVectors(tg,xg,yg,ug,ugVar,uHP,vg,vgVar,vHP,fname = 'vel_laser.mp4'):
+
+   cbarText = 'Posterior Variance'
+   sc = 15
+   FS = 30
+   figW = 22.
+   figH = 12.
+   FS = 42
+
+   nframes = np.size(tg)
+   X,Y = np.meshgrid(xg,yg)
+   U = ug[0,:,:]
+   V = vg[0,:,:]
+   Var = ugVar[0,:,:]
+   Vmin = ugVar.min()
+   Vmax = ugVar.max()
+# Start Figure
+   fig = plt.figure(figsize=(figW,figH))
+   plot=fig.add_subplot(111)
+   Q = plot.quiver(X, Y, U, V,Var, clim=[Vmin,Vmax], pivot='mid', scale=sc)
+   date_text = plot.text(0.02, 1.02, '', transform=plot.transAxes,fontsize=FS,fontweight='bold')
+
+   hpt1 = plot.text(0.4, 1.06, '', transform=plot.transAxes,fontsize=20,fontweight='bold')
+   hpt2 = plot.text(0.4, 1.02, '', transform=plot.transAxes,fontsize=20,fontweight='bold')
+   hpx1 = plot.text(0.6, 1.06, '', transform=plot.transAxes,fontsize=20,fontweight='bold')
+   hpx2 = plot.text(0.6, 1.02, '', transform=plot.transAxes,fontsize=20,fontweight='bold')
+   hpy1 = plot.text(0.8, 1.06, '', transform=plot.transAxes,fontsize=20,fontweight='bold')
+   hpy2 = plot.text(0.8, 1.02, '', transform=plot.transAxes,fontsize=20,fontweight='bold')
+   hpn = plot.text(1., 1.02, '', transform=plot.transAxes,fontsize=20,fontweight='bold')
+
+   hpt1.set_text('$l_t: '+str(np.round(uHP[1],decimals=2))+' h$')
+   hpt2.set_text('$\sigma_t: '+str(np.round(uHP[0],decimals=2))+'$')
+   hpy1.set_text('$l_y: '+str(np.round(uHP[3],decimals=2))+' km$')
+   hpy2.set_text('$\sigma_y: '+str(np.round(uHP[2],decimals=2))+'$')
+   hpx1.set_text('$l_x: '+str(np.round(uHP[5],decimals=2))+' km$')
+   hpx2.set_text('$\sigma_x: '+str(np.round(uHP[4],decimals=2))+'$')
+   hpn.set_text('$noise: '+str(np.round(uHP[6],decimals=2))+'$')
+
+   qk = plot.quiverkey(Q,0.1,0.1,0.5,'0.5m/s')
+
+
+
+
+   plot.tick_params(axis='both',which='major',labelsize=FS)
+   plot.set_xlim(xg.min(), xg.max())
+   plot.set_ylim(yg.min(), yg.max())
+   plot.set_xlabel('Zonal distance (Km)',fontsize=FS)
+   plot.set_ylabel('Meridional distance (Km)',fontsize=FS)
+
+   cb = plt.colorbar(Q)
+   Vs = np.round(np.arange(Vmin,Vmax,(Vmax-Vmin)/5.),decimals=3)
+   cb.set_ticks(Vs)
+   cb.ax.tick_params(labelsize = FS)
+   cb.set_label(cbarText,fontsize = FS)
+
+
+   def update_quiver(t, Q, ug, vg,ugVar):
+       """updates the horizontal and vertical vector components by a
+       fixed increment on each frame
+       """
+       U = ug[t,:,:]
+       V = vg[t,:,:]
+       Var = ugVar[t,:,:]
+       Q.set_UVC(U,V,Var)
+       date_text.set_text('Time: '+ str(tg[t])+' h')
+       return Q,
+   # you need to set blit=False, or the first set of arrows never gets
+   # cleared on subsequent frames
+   anim = animation.FuncAnimation(fig, update_quiver, fargs=(Q, ug, vg, ugVar),
+                               frames=nframes,interval=5, blit=False)
+   
+   fps=4
+   frame_prefix='_tmp'
+   anim.save(fname, fps=fps, codec='mpeg4')
+   plt.show()
+   return anim
+
+#########################################################################################
+def animVecVar(tg,xg,yg,ug,ugVar,uHP,vg,vgVar,vHP):
+
+   sc = 20
+   stp = 2
+   nframes = np.size(tg)
+   X,Y = np.meshgrid(xg,yg)
+   U = ug[0,:,:]
+   V = vg[0,:,:]
+   Uv = ugVar[0,:,:]
+   Vv = vgVar[0,:,:]
+## gridcolor
+   cbarText = 'Posterior Var.'
+   cname = 'jet'
+   Vmin = np.min([Uv.min(),Vv.min()])  
+   Vmax = np.min([Uv.max(),Vv.max()]) 
+   N = 30. #number of contour lines
+   dL   = (Vmax-Vmin)/N
+   Vs = np.arange(Vmin,Vmax+dL,dL) #colorscale
+# Figure parameters
+   nframes = np.size(tg)
+   figW = 22.
+   figH = 12.
+   FS = 42
+# Start Figure
+   fig = plt.figure(figsize=(figW,figH))
+# start contourf var U
+   plot1=fig.add_subplot(231)
+   CS1 = plot1.contourf(X,Y,Uv,Vs,cmap=plt.get_cmap(cname))
+   plot1.set_xlim(xg.min(), xg.max())
+   plot1.set_ylim(yg.min(), yg.max())
+   title1 =  plot1.text(0.02, 1.1, '', transform=plot1.transAxes,fontsize=FS,fontweight='bold')
+   hpu_text1 = plot1.text(0.02, 0.9, '', transform=plot1.transAxes,fontsize=FS,fontweight='bold')
+   hpu_text2 = plot1.text(0.02, 0.8, '', transform=plot1.transAxes,fontsize=FS,fontweight='bold')
+   hpu_text3 = plot1.text(0.02, 0.7, '', transform=plot1.transAxes,fontsize=FS,fontweight='bold')
+   hpu_text4 = plot1.text(0.02, 0.6, '', transform=plot1.transAxes,fontsize=FS,fontweight='bold')
+
+# start quiver
+   plot2=fig.add_subplot(122)
+   date_text = plot2.text(0.02, 1.02, '', transform=plot2.transAxes,fontsize=FS,fontweight='bold')
+   Q = plot2.quiver(X, Y, U, V, pivot='mid', color='w', scale=sc)
+   qk = plot2.quiverkey(Q,0.1,0.1,0.5,'0.5m/s')
+   plot2.set_xlim(xg.min(), xg.max())
+   plot2.set_ylim(yg.min(), yg.max())
+
+# start contourf var V
+   plot3=fig.add_subplot(234)
+   CS3 = plot3.contourf(X,Y,Vv,Vs,cmap=plt.get_cmap(cname))
+   plot3.set_xlim(xg.min(), xg.max())
+   plot3.set_ylim(yg.min(), yg.max())
+   title3 =  plot3.text(0.02, 1.1, '', transform=plot3.transAxes,fontsize=FS,fontweight='bold')
+   hpv_text1 = plot3.text(0.02, 0.9, '', transform=plot3.transAxes,fontsize=FS,fontweight='bold')
+   hpv_text2 = plot3.text(0.02, 0.8, '', transform=plot3.transAxes,fontsize=FS,fontweight='bold')
+   hpv_text3 = plot3.text(0.02, 0.7, '', transform=plot3.transAxes,fontsize=FS,fontweight='bold')
+   hpv_text4 = plot3.text(0.02, 0.6, '', transform=plot3.transAxes,fontsize=FS,fontweight='bold')
+
+   def anim(j): #, Q, ug, vg):
+      global CS1,CS2, Q
+
+      Uv = np.squeeze(ugVar[j,:,:])
+      Vv = np.squeeze(vgVar[j,:,:])
+      U = ug[j,:,:]
+      V = vg[j,:,:]
+      CS1 = plot1.contourf(X,Y,Uv,Vs,cmap=plt.get_cmap(cname))
+#      cbar1 = plt.colorbar(CS1)
+#      cbar1.set_label(cbarText,fontsize = FS)
+#      cbar1.ax.tick_params(labelsize = FS)
+
+#      Q = plot.quiver(X,Y,U,V,scale=sc,color='k')    
+      Q.set_UVC(U,V)
+      date_text.set_text('Time: '+ str(tg[j]))
+
+      CS3 = plot3.contourf(X,Y,Vv,Vs,cmap=plt.get_cmap(cname))
+#      cbar3 = plt.colorbar(CS3)
+#      cbar1.set_label(cbarText,fontsize = FS)
+#      cbar3.ax.tick_params(labelsize = FS)
+
+      print nframes,j
+#      return CS,Q
+   anim = animation.FuncAnimation(fig, anim,#fargs=(CS,Q),  
+                                  frames=nframes, interval=5, blit=False)
+   fname = 'velvar_laser.mp4'
+   fps=4
+   frame_prefix='_tmp'
+   anim.save(fname, fps=fps, codec='mpeg4')
+   plt.show()
+   return anim
+
+################################################################################
+
+# GPy kernel
+# implement a new kernel
+#   1) implement the new covariance as a GPy.kern.src.kern.Kern object
+#   2) update the GPy.kern.src file
+
+
+from .kern import Kern
+import numpy as np
+
+class myKernel(Kern):
+
+    def __init__(self,input_dim,variance=1.,lengthscale=1.,power=1.):
+        super(myKernel, self).__init__(input_dim, 'myKern')
+        assert input_dim == 2, "For this kernel we assume input_dim=2"
+        self.variance = Param('variance', variance)
+        self.lengthscale = Param('lengtscale', lengthscale)
+        self.power = Param('power', power)
+        self.add_parameters(self.variance, self.lengthscale, self.power)
+
+
+    def K(self,X,X2):
+        if X2 is None: X2 = X
+        dist2 = np.square((X-X2.T)/self.lengthscale)
+        return self.variance*(1 + dist2/2.)**(-self.power)
+
 
 
 

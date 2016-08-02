@@ -286,6 +286,143 @@ def constructField(st,et,sample_step=5):
 
    return tg,yg,xg,vg,ug,vgVar,ugVar,vHP,uHP
 
+
+###################################################################################################
+
+def constructField2(st,et,sample_step=5):
+
+   with open('Filtered_2016_2_7.pkl','rb') as input:
+       tr = pickle.load(input)
+   # drifter L_0937 has a strage velocities on its first 2-3 steps
+   # this drifter is index 238 on file 'Filtered_2016_2_7.pkl'
+   # to check, figure(); quiver(tr.lon[8:20,238],tr.lat[8:20,238],tr.u[8:20,238],tr.v[8:20,238])
+   # exclude data from this drifter using NaN
+   tr.lat[:,238] = np.nan
+   tr.lon[:,238] = np.nan
+   tr.u[:,238] = np.nan
+   tr.v[:,238] = np.nan
+
+   time = (tr.time[st:et] - tr.time[st])/3600. # time in hours    
+   latt = tr.lat[st:et,:]
+   lont = tr.lon[st:et,:] 
+   uob = tr.u[st:et,:]
+   vob = tr.v[st:et,:]
+   # origin of cartesian coord.
+   lat0 = 28.8
+   lon0 = -88.55
+   NAD83=pyproj.Proj("+init=EPSG:3452") #Louisiana South (ftUS)
+   xob,yob=NAD83(lont,latt)
+   xob[np.where(np.isnan(lont))]=np.nan
+   yob[np.where(np.isnan(lont))]=np.nan
+
+   to = time[:,None]; to = np.repeat(to,np.size(latt,1),axis=1)
+   to = np.reshape(to,[-1,1])
+   xo = np.reshape(xob,[-1,1])/1000. # in km
+   yo = np.reshape(yob,[-1,1])/1000. # in km
+   uo = np.reshape(uob,[-1,1])
+   vo = np.reshape(vob,[-1,1])
+   if sample_step>0: # not use all data
+      samples = np.arange(0,xo.size,sample_step) #np.random.randint(0,xo.size,nsamples)
+      test = set(np.arange(xo.size)) - set(samples)
+      test = np.array(list(test))
+      xt = xo[test] # use to compute error
+      yt = yo[test]
+      tt = to[test]
+      ut = uo[test]
+      vt = vo[test]
+      xo = xo[samples]
+      yo = yo[samples]
+      to = to[samples]
+      uo = uo[samples]
+      vo = vo[samples]
+
+
+   validPoints = np.where((~np.isnan(xo))&(~np.isnan(yo)))
+   uo = uo[validPoints]; uo = uo[:,None]
+   vo = vo[validPoints]; vo = vo[:,None]
+   xo = xo[validPoints]; xo = xo[:,None]
+   yo = yo[validPoints]; yo = yo[:,None]
+   to = to[validPoints]; to = to[:,None]
+   xo = xo-xo.min() + 2
+   yo = yo-yo.min() + 2
+# From here on, always use T,Y,X order
+#########
+# GRID check size of the final matrix Xrg (reshaped grid)
+   dt = 0.5
+   dx = 0.5
+   if (xo.max()-xo.min())>40.:
+      xmin = xo.mean() - 20
+      xmax = xo.mean() + 20
+      print 'here x'
+   else:
+      xmin = xo.min()- dx
+      xmax = xo.max() + dx
+ 
+   if (yo.max()-yo.min())>40.:
+      ymin = yo.mean() - 20
+      ymax = yo.mean() + 20
+      print 'here y'
+   else:
+      ymin = yo.min() - dx
+      ymax = yo.max() + dx
+
+   xg = np.arange(xmin,xmax,dx)
+   yg = np.arange(ymin,ymax,dx)
+   tg = np.arange(to.min(),to.max(),dt)
+
+   Yg,Tg,Xg = np.meshgrid(yg,tg,xg) # Works
+   #  1st index vary with T
+   #  2nd index vary with Y
+   #  3rd index vary with X
+
+   Tr = np.reshape(Tg,[Tg.size,1])
+   Yr = np.reshape(Yg,[Yg.size,1]) 
+   Xr = np.reshape(Xg,[Xg.size,1])
+   Xrg = np.concatenate([Tr,Yr,Xr],axis=1)
+# Compute covariances
+# Pay attention on the order T,Y,X
+   X = np.concatenate([to,yo,xo],axis=1)
+   xa = np.concatenate([yo,xo],axis=1)
+   r_df = 2.1
+   r_cf = 2.1
+   rt = 3.4
+   sigt = 0.0159
+   noise = 0.00002
+
+   kt = gps.rbf(to,to,rt,sigt,0)
+   kyx = gps.myKernel(xa,xa,r_df,r_cf,alpha=1)
+
+   print k
+## Compute V
+   model_v = GPy.models.GPRegression(X,vo,k)
+#   model_v.Gaussian_noise = noise # got from previous experiments
+   model_v.optimize()   
+   print model_v
+   model_v.optimize_restarts()
+   print model_v
+   vg,vgVar = model_v.predict(Xrg)
+   vHP = model_v.param_array
+
+## Compute U
+   model_u = GPy.models.GPRegression(X,uo,k)
+#   model_u.Gaussian_noise = noise # got from previous experiments
+   model_u.optimize()   
+   print model_u
+   model_u.optimize_restarts()
+   print model_u
+
+   ug,ugVar = model_u.predict(Xrg)
+   uHP = model_u.param_array
+   uHP_names = model_u.parameter_names()
+
+   vg = np.reshape(vg,[tg.size,yg.size,-1])
+   ug = np.reshape(ug,[tg.size,yg.size,-1])
+   vgVar = np.reshape(vgVar,[tg.size,yg.size,-1])
+   ugVar = np.reshape(ugVar,[tg.size,yg.size,-1])
+
+
+   return tg,yg,xg,vg,ug,vgVar,ugVar,vHP,uHP
+
 ###########################################################################################
 
 def animateVectors(tg,xg,yg,ug,ugVar,uHP,vg,vgVar,vHP,fname = 'vel_laser.mp4'):
@@ -466,19 +603,62 @@ import numpy as np
 
 class myKernel(Kern):
 
-    def __init__(self,input_dim,variance=1.,lengthscale=1.,power=1.):
+    def __init__(self,input_dim,l_df=1.,l_cf=1,ratio=1.):
         super(myKernel, self).__init__(input_dim, 'myKern')
         assert input_dim == 2, "For this kernel we assume input_dim=2"
-        self.variance = Param('variance', variance)
-        self.lengthscale = Param('lengtscale', lengthscale)
-        self.power = Param('power', power)
-        self.add_parameters(self.variance, self.lengthscale, self.power)
+        self.length_df = Param('length_df', l_df)
+        self.length_df = Param('length_cf', l_cf)
+        self.ratio = Param('ratio', ratio)
+        self.add_parameters(self.length_df, self.length_cf, self.ratio)
 
+    def parameters_changed(self):
+        # nothing todo here
+        pass
 
     def K(self,X,X2):
         if X2 is None: X2 = X
+        p = 2 # number of dimensions   
+        dx1 = X[:,0][:,None] - X2[:,0]    
+        dx2 = X[:,1][:,None] - X2[:,1]    
+        B11 = dx1*dx1
+        B12 = dx1*dx2
+        B22 = dx2*dx2
+        norm = np.sqrt(np.square(dx1)+np.square(dx2))
+        # divergence free (df)
+        rdf2 = np.square(self.length_df) 
+        Cdf = np.square(norm/self.length_df)   
+        aux = (p-1) - Cdf
+        Adf = np.concatenate([np.concatenate([B11/rdf2+aux,B12/rdf2],axis=1),
+                         np.concatenate([B12/rdf2,B22/rdf2+aux],axis=1)],axis=0)
+        Cdf = np.concatenate([np.concatenate([Cdf,Cdf],axis=1),
+                         np.concatenate([Cdf,Cdf],axis=1)],axis=0)
+        Kdf = np.square(1./self.length_df)*np.exp(-Cdf/2.)*Adf 
+        # curl free (cf)
+        rcf2 = np.square(self.length_cf) 
+        Ccf = np.square(norm/self.length_cf)  
+        Acf = np.concatenate([np.concatenate([1-B11/rcf2,-B12/rcf2],axis=1),
+                         np.concatenate([-B12/rcf2,1-B22/rcf2],axis=1)],axis=0)
+        Ccf = np.concatenate([np.concatenate([Ccf,Ccf],axis=1),
+                         np.concatenate([Ccf,Ccf],axis=1)],axis=0)
+        Kcf = np.square(1./self.length_cf)*np.exp(-Ccf/2.)*Acf 
+        return (self.ratio*Kdf)+(1-self.ratio)*Kcf 
+
+    def Kdiag(self,X):
+        return np.ones(X.shape[0])
+
+    def update_gradients_full(self, dL_dK, X, X2): # edit this###########3
+        if X2 is None: X2 = X
+
         dist2 = np.square((X-X2.T)/self.lengthscale)
-        return self.variance*(1 + dist2/2.)**(-self.power)
+
+        dvar = (1 + dist2/2.)**(-self.power)
+
+        dl = self.power * self.variance * dist2 * self.lengthscale**(-3) * (1 + dist2/2./self.power)**(-self.power-1)
+        dp = - self.variance * np.log(1 + dist2/2.) * (1 + dist2/2.)**(-self.power)
+
+        self.variance.gradient = np.sum(dvar*dL_dK)
+        self.lengthscale.gradient = np.sum(dl*dL_dK)
+        self.power.gradient = np.sum(dp*dL_dK)
 
 
 

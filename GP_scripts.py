@@ -3,40 +3,40 @@ import scipy as sc
 from scipy.interpolate import Rbf
 
 #####################################################
-def nonDivK2(x1a,x2a,x1b,x2b,r_df,r_cf,alpha=1):
+def myKernel(xa,xb,r_df,r_cf,alpha=1):
 # index df = div free; index cf = curl free
-
-   p = 2 # number of dimensions 
-  
-   dx1 = x1a - x1b.T    
-   dx2 = x2a - x2b.T    
+# xa and xb are 2D vectors [xa1,xa2] [xb1,xb2]
+   p = 2 # number of dimensions   
+   dx1 = xa[:,0][:,None] - xb[:,0]    
+   dx2 = xa[:,1][:,None] - xb[:,1]    
    norm = np.sqrt(np.square(dx1)+np.square(dx2))
-
+###
    Cdf = np.square(norm/r_df)   
-   Ccf = np.square(norm/r_cf)   
+   Ccf = np.square(norm/r_cf)  
+   rdf2 = np.square(r_df) 
+   rcf2 = np.square(r_cf) 
    # C must be N by M for xa_i,xb_j where i= 1..N, and j=1..M
-   
+###   
    B11 = dx1*dx1 # np.concatenate([dx1*dx1,dx1*dx2],axis=1)
    B12 = dx1*dx2
    B21 = dx2*dx1
    B22 = dx2*dx2 #np.concatenate([dx2*dx1,dx2*dx2],axis=1)
-
+###
 # divergence free 
-   aux = (((p-1) - Cdf)
-   Adf = np.concatenate([np.concatenate([B11+aux,B12],axis=1),
-                         np.concatenate([B21,B22+aux],axis=1)],axis=0)
+   aux = (p-1) - Cdf
+   Adf = np.concatenate([np.concatenate([B11/rdf2+aux,B12/rdf2],axis=1),
+                         np.concatenate([B21/rdf2,B22/rdf2+aux],axis=1)],axis=0)
 #      A = B*B.T + (((p-1) - C)*np.identity(p))
-
+##########
 # curl free
-   Acf = np.concatenate([np.concatenate([-B11,B12],axis=1),
-                         np.concatenate([B21,-B22],axis=1)],axis=0)
+   Acf = np.concatenate([np.concatenate([1-B11/rcf2,-B12/rcf2],axis=1),
+                         np.concatenate([-B21/rcf2,1-B22/rcf2],axis=1)],axis=0)
 #      A = np.identity(p) - B*B.T curl free
-
    Cdf = np.concatenate([np.concatenate([Cdf,Cdf],axis=1),
                          np.concatenate([Cdf,Cdf],axis=1)],axis=0)
    Ccf = np.concatenate([np.concatenate([Ccf,Ccf],axis=1),
                          np.concatenate([Ccf,Ccf],axis=1)],axis=0)
-
+###
    Kdf = np.square(1./r_df)*np.exp(-Cdf/2.)*Adf 
    Kcf = np.square(1./r_cf)*np.exp(-Ccf/2.)*Acf 
    return (alpha*Kdf)+(1-alpha)*Kcf # N*p by M*p matrix 

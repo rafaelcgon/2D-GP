@@ -6,6 +6,7 @@ import mpl_toolkits.basemap.pyproj as pyproj
 from matplotlib import pyplot as plt
 from matplotlib import animation
 from matplotlib import rc,rcParams
+import myKernel
 rc('text',usetex=True)
 # document to modify or create new scripts
 # All scripts should be copied to their original .py file
@@ -251,6 +252,8 @@ def constructField(st,et,sample_step=5):
    Xrg = np.concatenate([Tr,Yr,Xr],axis=1)
 # Compute covariances
 # Pay attention on the order T,Y,X
+
+#
    kt = GPy.kern.RBF(input_dim=1, active_dims=[0], variance=sigt, lengthscale=rt)
    ky = GPy.kern.RBF(input_dim=1, active_dims=[1], variance=sigy, lengthscale=ry)
    kx = GPy.kern.RBF(input_dim=1, active_dims=[2], variance=sigx, lengthscale=rx)
@@ -288,8 +291,7 @@ def constructField(st,et,sample_step=5):
 
 
 ###################################################################################################
-
-def constructField2(st,et,sample_step=5):
+def constructField2(st,et,sample_step=15,random_samp=0,nonDiv=1):
 
    with open('Filtered_2016_2_7.pkl','rb') as input:
        tr = pickle.load(input)
@@ -336,16 +338,35 @@ def constructField2(st,et,sample_step=5):
       uo = uo[samples]
       vo = vo[samples]
 
-
    validPoints = np.where((~np.isnan(xo))&(~np.isnan(yo)))
    uo = uo[validPoints]; uo = uo[:,None]
    vo = vo[validPoints]; vo = vo[:,None]
    xo = xo[validPoints]; xo = xo[:,None]
    yo = yo[validPoints]; yo = yo[:,None]
    to = to[validPoints]; to = to[:,None]
-   xo = xo-xo.min() + 2
-   yo = yo-yo.min() + 2
+   x_ori = xo.min()+2; y_ori = yo.min()+2
+   xo = xo-x_ori
+   yo = yo-y_ori
+   obs = np.concatenate([vo,uo],axis=0)
+   validPoints2 = np.where((~np.isnan(xt))&(~np.isnan(yt)))
+   ut = ut[validPoints2]; ut = ut[:,None]
+   vt = vt[validPoints2]; vt = vt[:,None]
+   xt = xt[validPoints2]; xt = xt[:,None]
+   yt = yt[validPoints2]; yt = yt[:,None]
+   tt = tt[validPoints2]; tt = tt[:,None]
+   xt = xt-x_ori
+   yt = yt-y_ori
+   obst = np.concatenate([vt,ut],axis=0)
+
 # From here on, always use T,Y,X order
+   X = np.concatenate([to,yo,xo],axis=1)
+   Xt = np.concatenate([tt,yt,xt],axis=1)
+
+   r = 0.1
+   ratio = 0.5
+   rt = 1.
+   sigt = 5
+   noise = 0.0002
 #########
 # GRID check size of the final matrix Xrg (reshaped grid)
    dt = 0.5
@@ -381,39 +402,21 @@ def constructField2(st,et,sample_step=5):
    Xrg = np.concatenate([Tr,Yr,Xr],axis=1)
 # Compute covariances
 # Pay attention on the order T,Y,X
-   X = np.concatenate([to,yo,xo],axis=1)
-   xa = np.concatenate([yo,xo],axis=1)
-   r_df = 2.1
-   r_cf = 2.1
-   rt = 3.4
-   sigt = 0.0159
-   noise = 0.00002
 
-   kt = gps.rbf(to,to,rt,sigt,0)
-   kyx = gps.myKernel(xa,xa,r_df,r_cf,alpha=1)
-
+#
+   kt = GPy.kern.RBF(input_dim=1, active_dims=[0], variance=sigt, lengthscale=rt)
+   kxy = myKernel.nonDivK(2, [1,2], r)
+   k = kt * kxy 
    print k
 ## Compute V
-   model_v = GPy.models.GPRegression(X,vo,k)
+   model = GPy.models.GPRegression(X,obs,k)
 #   model_v.Gaussian_noise = noise # got from previous experiments
-   model_v.optimize()   
-   print model_v
-   model_v.optimize_restarts()
-   print model_v
-   vg,vgVar = model_v.predict(Xrg)
-   vHP = model_v.param_array
-
-## Compute U
-   model_u = GPy.models.GPRegression(X,uo,k)
-#   model_u.Gaussian_noise = noise # got from previous experiments
-   model_u.optimize()   
-   print model_u
-   model_u.optimize_restarts()
-   print model_u
-
-   ug,ugVar = model_u.predict(Xrg)
-   uHP = model_u.param_array
-   uHP_names = model_u.parameter_names()
+   model.optimize()   
+   print model
+   model.optimize_restarts()
+   print model
+   f,fVar = model.predict(Xrg)
+   HP = model.param_array
 
    vg = np.reshape(vg,[tg.size,yg.size,-1])
    ug = np.reshape(ug,[tg.size,yg.size,-1])
@@ -422,6 +425,8 @@ def constructField2(st,et,sample_step=5):
 
 
    return tg,yg,xg,vg,ug,vgVar,ugVar,vHP,uHP
+
+
 
 ###########################################################################################
 
@@ -591,75 +596,6 @@ def animVecVar(tg,xg,yg,ug,ugVar,uHP,vg,vgVar,vHP):
    return anim
 
 ################################################################################
-
-# GPy kernel
-# implement a new kernel
-#   1) implement the new covariance as a GPy.kern.src.kern.Kern object
-#   2) update the GPy.kern.src file
-
-
-from .kern import Kern
-import numpy as np
-
-class myKernel(Kern):
-
-    def __init__(self,input_dim,l_df=1.,l_cf=1,ratio=1.):
-        super(myKernel, self).__init__(input_dim, 'myKern')
-        assert input_dim == 2, "For this kernel we assume input_dim=2"
-        self.length_df = Param('length_df', l_df)
-        self.length_df = Param('length_cf', l_cf)
-        self.ratio = Param('ratio', ratio)
-        self.add_parameters(self.length_df, self.length_cf, self.ratio)
-
-    def parameters_changed(self):
-        # nothing todo here
-        pass
-
-    def K(self,X,X2):
-        if X2 is None: X2 = X
-        p = 2 # number of dimensions   
-        dx1 = X[:,0][:,None] - X2[:,0]    
-        dx2 = X[:,1][:,None] - X2[:,1]    
-        B11 = dx1*dx1
-        B12 = dx1*dx2
-        B22 = dx2*dx2
-        norm = np.sqrt(np.square(dx1)+np.square(dx2))
-        # divergence free (df)
-        rdf2 = np.square(self.length_df) 
-        Cdf = np.square(norm/self.length_df)   
-        aux = (p-1) - Cdf
-        Adf = np.concatenate([np.concatenate([B11/rdf2+aux,B12/rdf2],axis=1),
-                         np.concatenate([B12/rdf2,B22/rdf2+aux],axis=1)],axis=0)
-        Cdf = np.concatenate([np.concatenate([Cdf,Cdf],axis=1),
-                         np.concatenate([Cdf,Cdf],axis=1)],axis=0)
-        Kdf = np.square(1./self.length_df)*np.exp(-Cdf/2.)*Adf 
-        # curl free (cf)
-        rcf2 = np.square(self.length_cf) 
-        Ccf = np.square(norm/self.length_cf)  
-        Acf = np.concatenate([np.concatenate([1-B11/rcf2,-B12/rcf2],axis=1),
-                         np.concatenate([-B12/rcf2,1-B22/rcf2],axis=1)],axis=0)
-        Ccf = np.concatenate([np.concatenate([Ccf,Ccf],axis=1),
-                         np.concatenate([Ccf,Ccf],axis=1)],axis=0)
-        Kcf = np.square(1./self.length_cf)*np.exp(-Ccf/2.)*Acf 
-        return (self.ratio*Kdf)+(1-self.ratio)*Kcf 
-
-    def Kdiag(self,X):
-        return np.ones(X.shape[0])
-
-    def update_gradients_full(self, dL_dK, X, X2): # edit this###########3
-        if X2 is None: X2 = X
-
-        dist2 = np.square((X-X2.T)/self.lengthscale)
-
-        dvar = (1 + dist2/2.)**(-self.power)
-
-        dl = self.power * self.variance * dist2 * self.lengthscale**(-3) * (1 + dist2/2./self.power)**(-self.power-1)
-        dp = - self.variance * np.log(1 + dist2/2.) * (1 + dist2/2.)**(-self.power)
-
-        self.variance.gradient = np.sum(dvar*dL_dK)
-        self.lengthscale.gradient = np.sum(dl*dL_dK)
-        self.power.gradient = np.sum(dp*dL_dK)
-
 
 
 

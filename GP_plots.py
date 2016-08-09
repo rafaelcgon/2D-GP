@@ -7,6 +7,7 @@ from matplotlib import rc,rcParams
 import matplotlib as mpl 
 from GP_scripts import *
 import GPy
+from myKernel import myKernel
 rc('text',usetex=True)
 ####################################################################
 def unit_vector(vector,ax=-1):
@@ -637,15 +638,15 @@ def run_example2(nsamples = 5,divFree = 1):
    X1 = np.reshape(X1,[X1.size,1])
    X2 = np.reshape(X2,[X2.size,1])
    X = np.concatenate([X1,X2],axis=1)
-   um = np.reshape(um,[-1])
-   vm = np.reshape(vm,[-1])
+   um2 = np.reshape(um,[-1])
+   vm2 = np.reshape(vm,[-1])
 # generate random samples
    
    samples = np.random.randint(0,X1.size,nsamples)
    x1 = X1[samples]
    x2 = X2[samples]
-   y1 = um[samples][:,None]
-   y2 = vm[samples][:,None]
+   y1 = um2[samples][:,None]
+   y2 = vm2[samples][:,None]
    X = np.concatenate([x1,x2],axis=1)
 
 #   y = np.concatenate([y1,y2])
@@ -699,5 +700,117 @@ def run_example2(nsamples = 5,divFree = 1):
 #   err_vel1,ds = absoluteError(absVel,absVel1,X1s,X2s,x1,x2)
 #   err_ang1,ds = absoluteError(angle,angle1,X1s,X2s,x1,x2)
 #   err_ang1[np.where(err_ang1>180)]=360-err_ang1[np.where(err_ang1>180)]
+
+#####################################################################
+def run_example3(nsamples = 5,divFree = 1,rms=0):
+   x,y,phi,xm,ym,um,vm = generate_2D_gaussian(divFree)
+   
+   X1,X2=np.meshgrid(xm,ym)
+   X1 = np.reshape(X1,[X1.size,1])
+   X2 = np.reshape(X2,[X2.size,1])
+   X = np.concatenate([X1,X2],axis=1)
+   um2 = np.reshape(um,[-1])
+   vm2 = np.reshape(vm,[-1])
+# generate random samples
+   
+   samples = np.random.randint(0,X1.size,nsamples)
+   x1 = X1[samples]
+   x2 = X2[samples]
+   y1 = um2[samples][:,None]
+   y2 = vm2[samples][:,None]
+   X = np.concatenate([x1,x2],axis=1)
+   Y = np.concatenate([y1,y2],axis=0)
+#   y = np.concatenate([y1,y2])
+#   y = np.reshape(y,[y.size,1])
+
+   x1s = xm #np.arange(x1.min(),x1.max(),0.1)
+   x2s = ym #np.arange(x2.min(),x2.max(),0.1)
+   X1s,X2s = np.meshgrid(x1s,x2s)   
+   X1s = np.reshape(X1s,[X1s.size,1])
+   X2s = np.reshape(X2s,[X2s.size,1])
+   Xg = np.concatenate([X1s,X2s],axis=1)
+
+   r1 = 0.1
+   sig1 = 5
+   r2 = 0.1
+   sig2 = 5
+   noise = 0.0002
+   k1 = GPy.kern.RBF(input_dim=1, active_dims=[0], variance=sig1, lengthscale=r1)
+   k2 = GPy.kern.RBF(input_dim=1, active_dims=[1], variance=sig2, lengthscale=r2)
+   k = k1 * k2
+##
+   model_u = GPy.models.GPRegression(X,y1,k)
+#   model_u.Gaussian_noise = noise # got from previous experiments
+   model_u.optimize()   
+   model_u.optimize_restarts()
+   ug,ugVar = model_u.predict(Xg)
+   u_HP = model_u.param_array
+   ug = np.reshape(ug,[xm.size,-1])
+
+##
+   model_v = GPy.models.GPRegression(X,y2,k)
+#   model_v.Gaussian_noise = noise # got from previous experiments
+   model_v.optimize()   
+   model_v.optimize_restarts()
+   vg,vgVar = model_v.predict(Xg)
+   v_HP = model_v.param_array
+   vg = np.reshape(vg,[xm.size,-1])
+
+### new approach
+   new_k = myKernel(2,[0,1],0.6,0.6,1)
+#   new_k.ratio.constrain_fixed(1)
+   #new_k.length_cf.constrain_fixed(0)
+   model = GPy.models.GPRegression(X,Y,new_k)
+#   model.optimize(messages=True)   
+   model.optimize_restarts(num_restarts=1500)
+   print model
+   print nsamples
+   f,fVar = model.predict(Xg)
+   f_HP = model.param_array
+   fu = np.reshape(f[:f.size/2],[xm.size,-1])
+   fv = np.reshape(f[f.size/2:],[xm.size,-1])
+
+# errors by component
+   rmsug,rmsvg = rmse(X1s,X2s,ug,vg,X1,X2,um,vm,knd = '')
+   rmsfu,rmsfv = rmse(X1s,X2s,fu,fv,X1,X2,um,vm,knd = '')
+   if rms==0:
+      return xm,ym,um,vm,ug,vg,fu,fv,rmsug,rmsvg,rmsfu,rmsfv,u_HP,v_HP,f_HP
+   else:
+      return rmsug,rmsvg,rmsfu,rmsfv,u_HP,v_HP,f_HP
+
+#####################################################################################################
+def RMSEperNsamples3(N=1000):
+   rmse_ug = np.zeros(N)
+   rmse_vg = np.zeros(N)
+   rx_u = np.zeros(N)
+   ry_u = np.zeros(N)
+   rx_v = np.zeros(N)
+   ry_v = np.zeros(N)
+
+   rmse_fu = np.zeros(N)
+   rmse_fv = np.zeros(N)
+   f_ldf = np.zeros(N)# div free length
+   f_lcf = np.zeros(N)# curl free length 
+   f_r = np.zeros(N) # ratio
+   f_n = np.zeros(N) #gaussian noise
+
+   nsamples = np.zeros(N)
+   for n in range(N):
+      nsamples[n] = np.random.randint(4,21)
+      print n,'/',N, nsamples[n]
+      rmsug,rmsvg,rmsfu,rmsfv,u_HP,v_HP,f_HP = run_example3(nsamples[n],1,1)
+      rmse_ug[n]=rmsug
+      rmse_vg[n]=rmsvg
+      rmse_fu[n]=rmsfu
+      rmse_fv[n]=rmsfv
+      rx_u[n]=u_HP[1]
+      ry_u[n]=u_HP[3]
+      rx_v[n]=v_HP[1]
+      ry_v[n]=v_HP[3]
+      f_ldf[n]=f_HP[0]
+      f_lcf[n]=f_HP[1]
+      f_r[n]=f_HP[2]
+      f_n[n]=f_HP[3]
+   return nsamples,rmse_ug,rmse_vg,rmse_fu,rmse_fv,rx_u,ry_u,rx_v,ry_v,f_ldf, f_lcf,f_r,f_n
 
 

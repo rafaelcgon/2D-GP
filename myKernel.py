@@ -4,7 +4,7 @@
 #   1) implement the new covariance as a GPy.kern.src.kern.Kern object
 #   2) update the GPy.kern.src file
 
-
+import GPy
 from GPy.kern import Kern
 from GPy.core import Param
 import numpy as np
@@ -106,8 +106,6 @@ class myKernel(Kern):
         self.length_cf.gradient = np.sum(dl_cf*dL_dK)
         self.ratio.gradient = np.sum(dr*dL_dK)
 
-# 1/x^2exp(-r^2/(2x^2))
-
     def update_gradients_diag(self, dL_dKdiag, X):
         pass
 
@@ -152,7 +150,7 @@ class myKernel(Kern):
 class nonDivK(Kern):
 
     def __init__(self,input_dim,active_dim=[0,1],length=1.):
-        super(nonDivK, self).__init__(input_dim,active_dim, 'myKern')
+        super(nonDivK, self).__init__(input_dim,active_dim, 'nonDivK')
         assert input_dim == 2, "For this kernel we assume input_dim=2"
         self.length = Param('length', length)
         self.length.constrain_positive()
@@ -249,7 +247,7 @@ class nonDivK(Kern):
 class nonRotK(Kern):
 
     def __init__(self,input_dim,active_dim=[0,1],l=1.):
-        super(nonRotK, self).__init__(input_dim,active_dim, 'myKern')
+        super(nonRotK, self).__init__(input_dim,active_dim, 'nonRotK')
         assert input_dim == 2, "For this kernel we assume input_dim=2"
         self.length = Param('length', l)
         self.length.constrain_positive()
@@ -339,4 +337,62 @@ class nonRotK(Kern):
         # no diagonal gradients
         pass
 
+#######################
+
+class Kt(Kern):
+
+    def __init__(self,input_dim=1,active_dims=[0],var=1,lengthscale=1.):
+        super(Kt, self).__init__(input_dim,active_dims, 'Kt')
+        assert input_dim == 1, "For this kernel we assume input_dim=1"
+        self.var = Param('var', var)
+        self.lengthscale = Param('lengthscale', lengthscale)
+        self.var.constrain_positive()
+        self.lengthscale.constrain_positive()
+        self.link_parameters(self.var,self.lengthscale)
+    def parameters_changed(self):
+        # nothing todo here
+        pass
+
+    def K(self,X,X2):
+        if X2 is None: X2 = X
+        var = self.var[0]
+        ls = self.lengthscale[0]
+        kt = GPy.kern.RBF(input_dim=1, active_dims=[0], variance = var,
+                          lengthscale = ls)
+        C = kt.K(X,X2)
+        K = np.concatenate([np.concatenate([C,C],axis=1),
+                         np.concatenate([C,C],axis=1)],axis=0)
+
+        return K 
+
+    def Kdiag(self,X):
+        return np.ones(X.shape[0]*X.shape[1]*2)*self.var
+
+    def update_gradients_full(self, dL_dK, X, X2): # edit this###########3
+        if X2 is None: X2 = X
+        var = self.var[0]
+        ls = self.lengthscale[0]
+        kt = GPy.kern.RBF(input_dim=1, active_dims=[0], variance = var, 
+                          lengthscale = ls)
+        self.var.gradient = kt.lengthscale.gradient #kt.variance.gradient 
+        self.lengthscale.gradient = kt.lengthscale.gradient 
+
+# 1/x^2exp(-r^2/(2x^2))
+
+    def update_gradients_diag(self, dL_dKdiag, X):
+        pass
+
+
+    def gradients_X(self,dL_dK,X,X2=None):
+        if X2 is None: X2 = X
+        var = self.var[0]
+        ls = self.lengthscale[0]
+        kt = GPy.kern.RBF(input_dim=1, active_dims=[0], variance = var, 
+                          lengthscale = ls)
+        return kt.gradients_X(dL_dK,X,X2)
+
+
+    def gradients_X_diag(self,dL_dKdiag,X):
+        # no diagonal gradients
+        pass
 

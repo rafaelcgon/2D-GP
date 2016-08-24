@@ -8,6 +8,9 @@ from matplotlib import animation
 from matplotlib import rc,rcParams
 import myKernel
 rc('text',usetex=True)
+import scipy.io as sio
+from laser_io_methods import save_object
+import GP_scripts as gps
 # document to modify or create new scripts
 # All scripts should be copied to their original .py file
 class laser(object):
@@ -150,9 +153,7 @@ def readFilteredTracks(): # laser_io_methods.py
 #        print n 
     return drifters
 ###################################################################################################
-
-def constructField(st,et,sample_step=5):
-
+def getData(st,et):
    with open('Filtered_2016_2_7.pkl','rb') as input:
        tr = pickle.load(input)
    # drifter L_0937 has a strage velocities on its first 2-3 steps
@@ -169,47 +170,114 @@ def constructField(st,et,sample_step=5):
    lont = tr.lon[st:et,:] 
    uob = tr.u[st:et,:]
    vob = tr.v[st:et,:]
+   N = np.size(latt,1)
+   validPoints = np.zeros(N)
+   for i in range(N):
+      valid = np.where((~np.isnan(lont[:,i]))&(~np.isnan(latt[:,i])))[0]
+      validPoints[i] = np.size(valid)
+   
+   order = np.squeeze(validPoints.argsort(axis=0))  
+   order = order[::-1] # reverse order
+   
+   return time,latt[:,order],lont[:,order],vob[:,order],uob[:,order],validPoints[order]
+
+##################################################################################
+def kriging(st,et,sample_step=5,skip=1,num_restarts=10,save=0,output='rbfModel'):
+   """
+   Estimate velocity field using rbf kernels on t,y,x (K = Kt*Ky*Kx)
+   st,et = initial,final time step of drifter data
+   sample_step = pick data each sample_step. If negative, pick data at 
+each time step = sample_step*(-1)     
+   skip = skip drifters. If skip ==1, use all drifters
+   num_restart: number of restarts on optimization
+   save: if == 0, return values, if not, save as output+'.mat' and output+'.pkl' 
+   """
+#   st = 0; et = 144
+   startTime = datetime.now()
+   time,latt,lont,vob,uob,validPoints = getData(st,et)
+            
    # origin of cartesian coord.
    lat0 = 28.8
    lon0 = -88.55
    NAD83=pyproj.Proj("+init=EPSG:3452") #Louisiana South (ftUS)
    xob,yob=NAD83(lont,latt)
-   xob[np.where(np.isnan(lont))]=np.nan
+   tob = time[:,None]; tob = np.repeat(tob,np.size(latt,1),axis=1)
    yob[np.where(np.isnan(lont))]=np.nan
+   xob[np.where(np.isnan(lont))]=np.nan
 
-   to = time[:,None]; to = np.repeat(to,np.size(latt,1),axis=1)
-   to = np.reshape(to,[-1,1])
-   xo = np.reshape(xob,[-1,1])/1000. # in km
-   yo = np.reshape(yob,[-1,1])/1000. # in km
-   uo = np.reshape(uob,[-1,1])
-   vo = np.reshape(vob,[-1,1])
-   if sample_step>0: # not use all data
-      samples = np.arange(0,xo.size,sample_step) #np.random.randint(0,xo.size,nsamples)
-      test = set(np.arange(xo.size)) - set(samples)
+   x_ori = np.nanmin(xob)+2; y_ori = np.nanmin(yob)+2
+   xob = (xob - x_ori)/1000. # in km
+   yob = (yob - y_ori)/1000. # in km
+
+   Nd = np.size(xob,1)/skip # number of drifters used
+   if (sample_step < 0)|(skip>1): # get samples per time step
+      ss = np.abs(sample_step)
+      sample_step = 1
+      samples = np.arange(0,np.size(tob,0),ss)
+      if ss > 1:
+         testt = set(np.arange(0,np.size(tob,0))) - set(samples)
+         testt = np.array(list(testt))
+      else:
+         testt = samples
+      if skip>1:
+         testd = set(np.arange(0,np.size(tob,1))) - set(np.arange(0,np.size(tob,1),skip))
+         testd = np.array(list(testd))
+      else:
+         testd = np.arange(0,np.size(tob,1)) 
+      to = np.reshape(tob[samples,::skip],[-1,1])
+      yo = np.reshape(yob[samples,::skip],[-1,1])
+      xo = np.reshape(xob[samples,::skip],[-1,1])
+      uo = np.reshape(yob[samples,::skip],[-1,1])
+      vo = np.reshape(xob[samples,::skip],[-1,1])
+      tt = np.reshape(tob[testt[:,None],testd],[-1,1])
+      yt = np.reshape(yob[testt[:,None],testd],[-1,1])
+      xt = np.reshape(xob[testt[:,None],testd],[-1,1])
+      ut = np.reshape(yob[testt[:,None],testd],[-1,1])
+      vt = np.reshape(xob[testt[:,None],testd],[-1,1])
+
+   else:
+      ss = 0
+      samples = np.arange(0,xob.size,sample_step) #np.random.randint(0,xo.size,nsamples)
+      test = set(np.arange(xob.size)) - set(samples)
       test = np.array(list(test))
-      xt = xo[test] # use to compute error
-      yt = yo[test]
-      tt = to[test]
-      ut = uo[test]
-      vt = vo[test]
-      xo = xo[samples]
-      yo = yo[samples]
-      to = to[samples]
-      uo = uo[samples]
-      vo = vo[samples]
+      xt = np.reshape(xob,[-1])[test,None]
+      yt = np.reshape(yob,[-1])[test,None]
+      tt = np.reshape(tob,[-1])[test,None]
+      ut = np.reshape(uob,[-1])[test,None]
+      vt = np.reshape(vob,[-1])[test,None]
+      xo = np.reshape(xob,[-1])[samples,None]
+      yo = np.reshape(yob,[-1])[samples,None]
+      to = np.reshape(tob,[-1])[samples,None]
+      uo = np.reshape(uob,[-1])[samples,None] 
+      vo = np.reshape(vob,[-1])[samples,None]
 
-
+  
    validPoints = np.where((~np.isnan(xo))&(~np.isnan(yo)))
-   uo = uo[validPoints]; uo = uo[:,None]
-   vo = vo[validPoints]; vo = vo[:,None]
-   xo = xo[validPoints]; xo = xo[:,None]
-   yo = yo[validPoints]; yo = yo[:,None]
-   to = to[validPoints]; to = to[:,None]
-   xo = xo-xo.min() + 2
-   yo = yo-yo.min() + 2
+   to = to[validPoints][:,None]
+   xo = xo[validPoints][:,None]
+   yo = yo[validPoints][:,None]
+   uo = uo[validPoints][:,None]
+   vo = vo[validPoints][:,None]
+   validPoints = np.where((~np.isnan(xt))&(~np.isnan(yt)))
+   tt = tt[validPoints][:,None]
+   xt = xt[validPoints][:,None]
+   yt = yt[validPoints][:,None]
+   ut = ut[validPoints][:,None]
+   vt = vt[validPoints][:,None]
+
+
+   output_mat = output + '_n'+str(np.size(xo))+'.mat'
+   if (ss > 0):
+      output_obj_u = output + '_dt'+str(ss*15)+ '_Nd'+str(Nd)+'_u.pkl'
+      output_obj_v = output + '_dt'+str(ss*15)+ '_Nd'+str(Nd)+'_v.pkl'
+   else:
+      output_obj_u = output + '_n'+str(np.size(xo))+'_u.pkl'
+      output_obj_v = output + '_n'+str(np.size(xo))+'_v.pkl'
 # From here on, always use T,Y,X order
    X = np.concatenate([to,yo,xo],axis=1)
-
+   obs = np.concatenate([vo,uo],axis=1)
+   Xt = np.concatenate([tt,yt,xt],axis=1)
+   obst = np.concatenate([vt,ut],axis=1)
    rx = 0.1
    sigx = 5
    ry = 0.1
@@ -218,20 +286,83 @@ def constructField(st,et,sample_step=5):
    sigt = 5
    noise = 0.0002
 #########
+# Compute covariances
+# Pay attention on the order T,Y,X
+
+#
+   kt = GPy.kern.RBF(input_dim=1, active_dims=[0], variance=sigt, lengthscale=rt)
+   ky = GPy.kern.RBF(input_dim=1, active_dims=[1], variance=sigy, lengthscale=ry)
+   kx = GPy.kern.RBF(input_dim=1, active_dims=[2], variance=sigx, lengthscale=rx)
+   k = kt * ky * kx 
+   print k
+   kv = k.copy() 
+## Compute V
+   model_v = GPy.models.GPRegression(X,vo,kv)
+#   model_v.Gaussian_noise = noise # got from previous experiments
+#   model_v.optimize()   
+#   print model_v
+   model_v.optimize_restarts(num_restarts=num_restarts)
+   print model_v
+#   vg,vgVar = model_v.predict(Xrg)
+   vHP = model_v.param_array
+
+## Compute U
+   ku = k.copy()
+   model_u = GPy.models.GPRegression(X,uo,ku)
+#   model_u.Gaussian_noise = noise # got from previous experiments
+#   model_u.optimize()   
+#   print model_u
+   model_u.optimize_restarts(num_restarts=num_restarts)
+   print model_u
+#   ug,ugVar = model_u.predict(Xrg)
+#   uHP = model_u.param_array
+#   uHP_names = model_u.parameter_names()
+
+#   vg = np.reshape(vg,[tg.size,yg.size,-1])
+#   ug = np.reshape(ug,[tg.size,yg.size,-1])
+#   vgVar = np.reshape(vgVar,[tg.size,yg.size,-1])
+#   ugVar = np.reshape(ugVar,[tg.size,yg.size,-1])
+   if save==0:
+      return X,obs,Xt,obst,model_v,model_u
+   else:
+      sio.savemat(output_mat,{'Xo':X,'obs':obs,'Xt':Xt,'test_points':obst})
+      with open(output_obj_u,'wb') as output:
+           pickle.dump(model_u,output,-1)
+      with open(output_obj_v,'wb') as output:
+           pickle.dump(model_v,output,-1)
+
+   print 'End of script, time : ' + str(datetime.now()-startTime)
+#######################################################################################
+def getRMSE(filename):
+    with open(filename+'_v.pkl','rb') as input:
+         model_v = pickle.load(input)
+    with open(filename+'_u.pkl','rb') as input:
+         model_u = pickle.load(input)
+
+    f = sio.loadmat(filename+'.mat')
+    Xt = f['Xt']
+    obst = f['test_points']
+    vt = obst[:,0]
+    ut = obst[:,1]
+    rmse_v = testModel1D(model_v,Xt,vt)
+    print rmse_v
+    rmse_u = testModel1D(model_u,Xt,ut)
+    print rmse_u
+    return rmse_v,rmse_u
+######################################################################################
+def getGrid(to,yo,xo,dt=0.5,dx=0.5,xLim=40,yLim=40):
 # GRID check size of the final matrix Xrg (reshaped grid)
-   dt = 0.5
-   dx = 0.5
-   if (xo.max()-xo.min())>40.:
-      xmin = xo.mean() - 20
-      xmax = xo.mean() + 20
+   if (xo.max()-xo.min())>xLim:
+      xmin = xo.mean() - xLim/2
+      xmax = xo.mean() + xLim/2
       print 'here x'
    else:
       xmin = xo.min()- dx
       xmax = xo.max() + dx
  
-   if (yo.max()-yo.min())>40.:
-      ymin = yo.mean() - 20
-      ymax = yo.mean() + 20
+   if (yo.max()-yo.min())>yLim:
+      ymin = yo.mean() - yLim/2
+      ymax = yo.mean() + yLim/2
       print 'here y'
    else:
       ymin = yo.min() - dx
@@ -249,50 +380,12 @@ def constructField(st,et,sample_step=5):
    Tr = np.reshape(Tg,[Tg.size,1])
    Yr = np.reshape(Yg,[Yg.size,1]) 
    Xr = np.reshape(Xg,[Xg.size,1])
-   Xrg = np.concatenate([Tr,Yr,Xr],axis=1)
-# Compute covariances
-# Pay attention on the order T,Y,X
-
-#
-   kt = GPy.kern.RBF(input_dim=1, active_dims=[0], variance=sigt, lengthscale=rt)
-   ky = GPy.kern.RBF(input_dim=1, active_dims=[1], variance=sigy, lengthscale=ry)
-   kx = GPy.kern.RBF(input_dim=1, active_dims=[2], variance=sigx, lengthscale=rx)
-   k = kt * ky * kx 
-   print k
-## Compute V
-   model_v = GPy.models.GPRegression(X,vo,k)
-#   model_v.Gaussian_noise = noise # got from previous experiments
-   model_v.optimize()   
-   print model_v
-   model_v.optimize_restarts()
-   print model_v
-   vg,vgVar = model_v.predict(Xrg)
-   vHP = model_v.param_array
-
-## Compute U
-   model_u = GPy.models.GPRegression(X,uo,k)
-#   model_u.Gaussian_noise = noise # got from previous experiments
-   model_u.optimize()   
-   print model_u
-   model_u.optimize_restarts()
-   print model_u
-
-   ug,ugVar = model_u.predict(Xrg)
-   uHP = model_u.param_array
-   uHP_names = model_u.parameter_names()
-
-   vg = np.reshape(vg,[tg.size,yg.size,-1])
-   ug = np.reshape(ug,[tg.size,yg.size,-1])
-   vgVar = np.reshape(vgVar,[tg.size,yg.size,-1])
-   ugVar = np.reshape(ugVar,[tg.size,yg.size,-1])
-
-
-   return tg,yg,xg,vg,ug,vgVar,ugVar,vHP,uHP
+   return np.concatenate([Tr,Yr,Xr],axis=1)
 
 
 ###################################################################################################
-def constructField2(st,et,sample_step=15,random_samp=0,nonDiv=1):
-
+def coKriging(st,et,sample_step=15,nonDiv=1,num_restarts=50,save=0,output='nDivModel'):
+   startTime = datetime.now()
    with open('Filtered_2016_2_7.pkl','rb') as input:
        tr = pickle.load(input)
    # drifter L_0937 has a strage velocities on its first 2-3 steps
@@ -309,54 +402,75 @@ def constructField2(st,et,sample_step=15,random_samp=0,nonDiv=1):
    lont = tr.lon[st:et,:] 
    uob = tr.u[st:et,:]
    vob = tr.v[st:et,:]
+            
    # origin of cartesian coord.
    lat0 = 28.8
    lon0 = -88.55
    NAD83=pyproj.Proj("+init=EPSG:3452") #Louisiana South (ftUS)
    xob,yob=NAD83(lont,latt)
-   xob[np.where(np.isnan(lont))]=np.nan
+   tob = time[:,None]; tob = np.repeat(tob,np.size(latt,1),axis=1)
    yob[np.where(np.isnan(lont))]=np.nan
+   xob[np.where(np.isnan(lont))]=np.nan
 
-   to = time[:,None]; to = np.repeat(to,np.size(latt,1),axis=1)
-   to = np.reshape(to,[-1,1])
-   xo = np.reshape(xob,[-1,1])/1000. # in km
-   yo = np.reshape(yob,[-1,1])/1000. # in km
-   uo = np.reshape(uob,[-1,1])
-   vo = np.reshape(vob,[-1,1])
-   if sample_step>0: # not use all data
-      samples = np.arange(0,xo.size,sample_step) #np.random.randint(0,xo.size,nsamples)
-      test = set(np.arange(xo.size)) - set(samples)
+   x_ori = np.nanmin(xob)+2; y_ori = np.nanmin(yob)+2
+   xob = (xob - x_ori)/1000. # in km
+   yob = (yob - y_ori)/1000. # in km
+
+
+   if sample_step < 0: # get samples per time step
+      ss = sample_step * (-1)
+      sample_step = 1
+      samples = np.arange(0,np.size(tob,0),ss)
+      test = set(np.arange(0,np.size(tob,0))) - set(samples)
       test = np.array(list(test))
-      xt = xo[test] # use to compute error
-      yt = yo[test]
-      tt = to[test]
-      ut = uo[test]
-      vt = vo[test]
-      xo = xo[samples]
-      yo = yo[samples]
-      to = to[samples]
-      uo = uo[samples]
-      vo = vo[samples]
+      to = np.reshape(tob[samples,:],[-1,1])
+      yo = np.reshape(yob[samples,:],[-1,1])
+      xo = np.reshape(xob[samples,:],[-1,1])
+      uo = np.reshape(yob[samples,:],[-1,1])
+      vo = np.reshape(xob[samples,:],[-1,1])
+      tt = np.reshape(tob[test,:],[-1,1])
+      yt = np.reshape(yob[test,:],[-1,1])
+      xt = np.reshape(xob[test,:],[-1,1])
+      ut = np.reshape(yob[test,:],[-1,1])
+      vt = np.reshape(xob[test,:],[-1,1])
 
+   else:
+      ss = 1
+      samples = np.arange(0,xob.size,sample_step) #np.random.randint(0,xo.size,nsamples)
+      test = set(np.arange(xob.size)) - set(samples)
+      test = np.array(list(test))
+      xt = np.reshape(xob,[-1])[test,None]
+      yt = np.reshape(yob,[-1])[test,None]
+      tt = np.reshape(tob,[-1])[test,None]
+      ut = np.reshape(uob,[-1])[test,None]
+      vt = np.reshape(vob,[-1])[test,None]
+      xo = np.reshape(xob,[-1])[samples,None]
+      yo = np.reshape(yob,[-1])[samples,None]
+      to = np.reshape(tob,[-1])[samples,None]
+      uo = np.reshape(uob,[-1])[samples,None] 
+      vo = np.reshape(vob,[-1])[samples,None]
+
+  
    validPoints = np.where((~np.isnan(xo))&(~np.isnan(yo)))
-   uo = uo[validPoints]; uo = uo[:,None]
-   vo = vo[validPoints]; vo = vo[:,None]
-   xo = xo[validPoints]; xo = xo[:,None]
-   yo = yo[validPoints]; yo = yo[:,None]
-   to = to[validPoints]; to = to[:,None]
-   x_ori = xo.min()+2; y_ori = yo.min()+2
-   xo = xo-x_ori
-   yo = yo-y_ori
+   to = to[validPoints][:,None]
+   xo = xo[validPoints][:,None]
+   yo = yo[validPoints][:,None]
+   uo = uo[validPoints][:,None]
+   vo = vo[validPoints][:,None]
    obs = np.concatenate([vo,uo],axis=0)
-   validPoints2 = np.where((~np.isnan(xt))&(~np.isnan(yt)))
-   ut = ut[validPoints2]; ut = ut[:,None]
-   vt = vt[validPoints2]; vt = vt[:,None]
-   xt = xt[validPoints2]; xt = xt[:,None]
-   yt = yt[validPoints2]; yt = yt[:,None]
-   tt = tt[validPoints2]; tt = tt[:,None]
-   xt = xt-x_ori
-   yt = yt-y_ori
+   validPoints = np.where((~np.isnan(xt))&(~np.isnan(yt)))
+   tt = tt[validPoints][:,None]
+   xt = xt[validPoints][:,None]
+   yt = yt[validPoints][:,None]
+   ut = ut[validPoints][:,None]
+   vt = vt[validPoints][:,None]
    obst = np.concatenate([vt,ut],axis=0)
+
+   output_mat = output + '_n'+str(np.size(xo))+'.mat'
+   if ss > 1:
+      output_obj = output + '_dt'+str(ss*15)+'.pkl'
+   else:
+      output_obj = output + '_n'+str(np.size(xo))+'.pkl'
 
 # From here on, always use T,Y,X order
    X = np.concatenate([to,yo,xo],axis=1)
@@ -368,68 +482,38 @@ def constructField2(st,et,sample_step=15,random_samp=0,nonDiv=1):
    sigt = 5
    noise = 0.0002
 #########
-# GRID check size of the final matrix Xrg (reshaped grid)
-   dt = 0.5
-   dx = 0.5
-   if (xo.max()-xo.min())>40.:
-      xmin = xo.mean() - 20
-      xmax = xo.mean() + 20
-      print 'here x'
-   else:
-      xmin = xo.min()- dx
-      xmax = xo.max() + dx
- 
-   if (yo.max()-yo.min())>40.:
-      ymin = yo.mean() - 20
-      ymax = yo.mean() + 20
-      print 'here y'
-   else:
-      ymin = yo.min() - dx
-      ymax = yo.max() + dx
-
-   xg = np.arange(xmin,xmax,dx)
-   yg = np.arange(ymin,ymax,dx)
-   tg = np.arange(to.min(),to.max(),dt)
-
-   Yg,Tg,Xg = np.meshgrid(yg,tg,xg) # Works
-   #  1st index vary with T
-   #  2nd index vary with Y
-   #  3rd index vary with X
-
-   Tr = np.reshape(Tg,[Tg.size,1])
-   Yr = np.reshape(Yg,[Yg.size,1]) 
-   Xr = np.reshape(Xg,[Xg.size,1])
-   Xrg = np.concatenate([Tr,Yr,Xr],axis=1)
 # Compute covariances
 # Pay attention on the order T,Y,X
-
-#
-   kt = GPy.kern.RBF(input_dim=1, active_dims=[0], variance=sigt, lengthscale=rt)
+   kt = myKernel.Kt(input_dim=1, active_dims=[0], variance=sigt, lengthscale=rt)
    kxy = myKernel.nonDivK(2, [1,2], r)
    k = kt * kxy 
    print k
-## Compute V
    model = GPy.models.GPRegression(X,obs,k)
-#   model_v.Gaussian_noise = noise # got from previous experiments
-   model.optimize()   
+   model.optimize_restarts(num_restarts=num_restarts)
    print model
-   model.optimize_restarts()
-   print model
-   f,fVar = model.predict(Xrg)
-   HP = model.param_array
-
-   vg = np.reshape(vg,[tg.size,yg.size,-1])
-   ug = np.reshape(ug,[tg.size,yg.size,-1])
-   vgVar = np.reshape(vgVar,[tg.size,yg.size,-1])
-   ugVar = np.reshape(ugVar,[tg.size,yg.size,-1])
-
-
-   return tg,yg,xg,vg,ug,vgVar,ugVar,vHP,uHP
-
-
+#   f,fVar = model.predict(Xrg)
+#   HP = model.param_array
+#   vg = np.reshape(vg,[tg.size,yg.size,-1])
+#   ug = np.reshape(ug,[tg.size,yg.size,-1])
+#   vgVar = np.reshape(vgVar,[tg.size,yg.size,-1])
+#   ugVar = np.reshape(ugVar,[tg.size,yg.size,-1])
+   if save==0:
+      return X,obs,Xt,obst,model
+   else:
+      sio.savemat(output_mat,{'Xo':X,'obs':obs,'Xt':Xt,'test_points':obst})
+      with open(output_obj,'wb') as output:
+           pickle.dump(model,output,-1)
+   print 'End of script, time : ' + str(datetime.now()-startTime)
+###########################################################################################
+def testModel1D(model,Xt,test_points):
+    f,fVar = model.predict(Xt)
+    return gps.rmse1(f,test_points)
+###########################################################################################
+def testModel2D(model,Xt,test_points):
+    f,fVar = model.predict(Xt)
+    return gps.rmse1(f[:f.size/2],test_points[:f.size/2]),rmse1(f[f.size/2:],test_points[f.size/2:])
 
 ###########################################################################################
-
 def animateVectors(tg,xg,yg,ug,ugVar,uHP,vg,vgVar,vHP,fname = 'vel_laser.mp4'):
 
    cbarText = 'Posterior Variance'

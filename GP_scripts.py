@@ -172,6 +172,12 @@ def rmse(x1s,x2s,f1,f2,x1,x2,y1,y2,knd = ''):
    rmse2 = np.sqrt(np.mean(np.square(error2)))
    print rmse1/(y1.max()-y1.min()),rmse2/(y2.max()-y2.min())
    return rmse1,rmse2
+#################################################################################
+def rmse1(ys,y):
+   # compute the rmse 
+   error = ys-y
+   error = np.reshape(error,[error.size])
+   return np.sqrt(np.mean(np.square(error)))
 ################################################################################
 def absoluteError(y,f,x1f,x2f,x1,x2):
    # y is the real field (scalar), 

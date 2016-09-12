@@ -7,6 +7,10 @@ from matplotlib import rc,rcParams
 import myKernel
 import scipy.io as sio
 from printNCFiles import createNC,writeNC
+import sys
+sys.path.append('/nethome/swang/python/lib/python2.7/site-packages')
+from netCDF4 import Dataset
+
 #import GP_scripts as gps
 
 def getData(st,et):
@@ -37,7 +41,7 @@ def getData(st,et):
    
    return time,latt[:,order],lont[:,order],vob[:,order],uob[:,order],validPoints[order]
 
-
+########################################################################################
 def kriging(st,et,sample_step=5,skip=5,num_restarts=10,save=0,output='rbfModel'):
    """
    Estimate velocity field using rbf kernels on t,y,x (K = Kt*Ky*Kx)
@@ -180,39 +184,113 @@ each time step = sample_step*(-1)
       return X,obs,Xt,obst,model_v,model_u
    else:
       sio.savemat(output_mat,{'Xo':X,'obs':obs,'Xt':Xt,'test_points':obst})
-      with open(output_obj_u,'wb') as output:
-           pickle.dump(model_u,output,-1)
-      with open(output_obj_v,'wb') as output:
-           pickle.dump(model_v,output,-1)
+#      with open(output_obj_u,'wb') as output:
+#           pickle.dump(model_u,output,-1)
+#      with open(output_obj_v,'wb') as output:
+#           pickle.dump(model_v,output,-1)
+   model_v.pickle(model_obj_v)
+   model_u.pickle(model_obj_u)
 
    print 'End of script, time : ' + str(datetime.now()-startTime)
 
 #######################################################################################
 def predict(filename,tlim=[0,0],ylim=[0,0],xlim=[0,0],dt=0.5,dx=0.5,xL=40,yL=40):
    startTime = datetime.now()
-   with open(filename+'_v.pkl','rb') as input:
-        model_v = pickle.load(input)
-   with open(filename+'_u.pkl','rb') as input:
-        model_u = pickle.load(input)
+   cheatPickle = GPy.load('cheatPickle.pkl')# - Stirr pickle to the right class,
+                                            #       otherwise it tries to load a paramz object.
+                                            # - Pickle is not working properly with GPy objects 
+                                            #       saved on Pegasus 2, it only works with 
+                                            #       the ones saved in my WS. 
+   model_v = GPy.load(filename + '_v.pkl')
+   model_u = GPy.load(filename + '_u.pkl')
+#   with open(filename+'_v.pkl','rb') as input:
+#        model_v = pickle.load(input)
+#   with open(filename+'_u.pkl','rb') as input:
+#        model_u = pickle.load(input)
    if (ylim[0] == ylim[1])&(xlim[0] == xlim[1]):
       f = sio.loadmat(filename+'.mat')
       Xo = f['Xo']
-      Xp = getGrid(Xo[:,0],Xo[:,1],Xo[:,2])
+      Xp,tp,yp,xp = getGrid(Xo[:,0],Xo[:,1],Xo[:,2])
    else:
-      Xp = getGrid(tlim,ylim,xlim,dt,dx,xL,yL)
-   V,VVar = model_v.predict(Xp)
-   U,UVar = model_u.predict(Xp)
+      Xp,tp,yp,xp = getGrid(tlim,ylim,xlim,dt,dx,xL,yL)
+   inc = yp.size*xp.size
+   i2=0
+   for i in range(tp.size): 
+      Xp2 = Xp[i2:i2+inc,:]
+      V2,VVar2 = model_v.predict(Xp2)
+      U2,UVar2 = model_u.predict(Xp2)
+      if i==0:
+         V = V2
+         VVar = VVar2
+         U = U2
+         UVar = UVar2
+      else:
+         V = np.concatenate([V,V2],axis=0)
+         U = np.concatenate([U,U2],axis=0)
+         VVar = np.concatenate([VVar,VVar2],axis=0)
+         UVar = np.concatenate([UVar,UVar2],axis=0)
+      i2+=inc
+      print 'step '+str(i+1)+'/'+str(tp.size)
+#   V,VVar = model_v.predict(Xp)
+#   U,UVar = model_u.predict(Xp)
    print 'Creating Netcdf file; running time = ' + str(datetime.now()-startTime)
-   createNC(filename+'.nc',Xp[:,0],Xp[:,1],Xp[:,2])
-   fi = Dataset(filename+'.nc','a')
+   createNC(filename+'_2.nc',tp,yp,xp)
+   V = np.reshape(V,[tp.size,yp.size,xp.size])
+   VVar = np.reshape(VVar,[tp.size,yp.size,xp.size])
+   U = np.reshape(U,[tp.size,yp.size,xp.size])
+   UVar = np.reshape(UVar,[tp.size,yp.size,xp.size])
+   fi = Dataset(filename+'_2.nc','a')
    fi = writeNC(fi,'v',V)
    fi = writeNC(fi,'u',U)
-   fi = writeNC(fi,'vvar',VVAR)
-   fi = writeNC(fi,'uvar',UVAR)
+   fi = writeNC(fi,'vvar',VVar)
+   fi = writeNC(fi,'uvar',UVar)
    fi.close()
    print 'End of script, time : ' + str(datetime.now()-startTime)
 
     #return Xp,V,U,VVar,UVar
+#######################################################################################
+def predictTest(filename):
+   startTime = datetime.now()
+   cheatPickle = GPy.load('cheatPickle.pkl')# - Stirr pickle to the right class,
+                                            #       otherwise it tries to load a paramz object.
+                                            # - Pickle is not working properly with GPy objects 
+                                            #       saved on Pegasus 2, it only works with 
+                                            #       the ones saved in my WS. 
+   model_v = GPy.load(filename + '_v.pkl')
+   model_u = GPy.load(filename + '_u.pkl')
+   f = sio.loadmat(filename+'.mat')
+   Xt = f['Xt']
+   obst=f['test_points']
+   vt = obst[:,0]
+   ut = obst[:,1]
+   Nt = ut.size()
+   step = Nt/10
+   
+   for i in range(0,Nt,step):
+      if i+step<Nt:
+         Xt2 = Xt[i:i+step,:]
+      elif i<Nt:
+         Xt2 = Xt[i:,:]
+      V2,VVar2 = model_v.predict(Xt2)
+      U2,UVar2 = model_u.predict(Xt2)
+      if i==0:
+         V = V2
+         VVar = VVar2
+         U = U2
+         UVar = UVar2
+      else:
+         V = np.concatenate([V,V2],axis=0)
+         U = np.concatenate([U,U2],axis=0)
+         VVar = np.concatenate([VVar,VVar2],axis=0)
+         UVar = np.concatenate([UVar,UVar2],axis=0)
+      print 'step '+str(i+1)+'/'+str(10)
+
+   print 'End of script, time : ' + str(datetime.now()-startTime)
+   output = filename +'_test.mat'
+   sio.savemat(output,{'Xt':Xt,'Vp':V,'VpVar':VVar,'Up':U,'UpVar':UVar,'test_points':obst})
+
+    #return Xp,V,U,VVar,UVar
+
 #######################################################################################
     
 def getRMSE(filename):
@@ -273,7 +351,7 @@ def getGrid(to,yo,xo,dt=0.5,dx=0.5,xL=40,yL=40):
    Tr = np.reshape(Tg,[Tg.size,1])
    Yr = np.reshape(Yg,[Yg.size,1]) 
    Xr = np.reshape(Xg,[Xg.size,1])
-   return np.concatenate([Tr,Yr,Xr],axis=1)
+   return np.concatenate([Tr,Yr,Xr],axis=1),tg,yg,xg
 
 
 

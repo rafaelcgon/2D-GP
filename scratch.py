@@ -182,6 +182,25 @@ def getData(st,et):
    return time,latt[:,order],lont[:,order],vob[:,order],uob[:,order],validPoints[order]
 
 ##################################################################################
+def initialPos(filename = 'pos.txt',round_dec=7):
+   with open('Filtered_2016_2_7.pkl','rb') as input:
+       tr = pickle.load(input)
+#   tr.lat[:,238] = np.nan
+#   tr.lon[:,238] = np.nan
+   fnew=open(filename,'w+')
+   Nd = np.size(tr.lat,1)
+   for i in range(Nd):
+       latt = np.squeeze(tr.lat[np.where(~np.isnan(tr.lat[:,i])),i])
+       lont = np.squeeze(tr.lon[np.where(~np.isnan(tr.lon[:,i])),i])
+       print np.ndim(latt), np.size(latt)
+       if (np.ndim(latt>0))&(np.ndim(lont>0)):
+          line = str(np.round(latt[0],decimals=round_dec))+ ','+str(np.round(lont[0],decimals=round_dec))+' , '+str(0)+'\n'
+          print latt[0],lont[0]
+          fnew.writelines(line)
+   fnew.close()
+
+
+##################################################################################
 def kriging(st,et,sample_step=5,skip=1,num_restarts=10,save=0,output='rbfModel'):
    """
    Estimate velocity field using rbf kernels on t,y,x (K = Kt*Ky*Kx)

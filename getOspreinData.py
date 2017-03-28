@@ -48,7 +48,7 @@ def getSal(inFileName,latlim,lonlim,zlim):
 
 # NetCDF ###########################################################################
 
-def getOsprein(period = [2,29],latlim=[23.0,31.0],lonlim=[-91.,-82.0],zlim=[0,0],NCOM=0):
+def getOsprein(period = [2,29],latlim=[23.0,31.0],lonlim=[-91.,-82.0],zlim=[0,0],NCOM=1):
     # period = days of the year (2 - 29 is 01/02/2013 - 01/29/2013)
    #print 'Extracting data:'
    if NCOM ==1:

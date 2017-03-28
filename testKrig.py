@@ -15,7 +15,7 @@ import gc
 from sklearn.gaussian_process import kernels,GaussianProcessRegressor
 
 
-def kriging(st=0,et=48,sample_step=-2,skip=3,num_restarts=20,save=1,output='testModel',gpy=0):
+def kriging(st=0,et=24,sample_step=-1,skip=1,num_restarts=30,save=1,output='testModel',gpy=0):
    """
    Estimate velocity field using rbf kernels on t,y,x (K = Kt*Ky*Kx)
    st,et = initial,final time step of drifter data
@@ -112,55 +112,71 @@ each time step = sample_step*(-1)
 #########
 # Compute covariances
 # Pay attention on the order T,Y,X
-   priors = np.array([2.,2.,2.])
+   priors = np.array([1.,1.,1.])
    bounds = np.array([[0.5,10.],[0.3,10],[0.3,10]])
    if gpy==1:
-      kv = GPy.kern.RBF(input_dim=3,ARD=True) #+ GPy.kern.RBF(input_dim=3,ARD=True)
+      kv = GPy.kern.RBF(input_dim=3,ARD=True) + GPy.kern.RBF(input_dim=3,ARD=True)
       model = GPy.models.GPRegression(X,vo,kv)
       model.optimize_restarts(messages=False,num_restarts=num_restarts)
-      print model
-      print kv.parameters
+      hypv = model.param_array
       del model,kv
       print gc.collect(2)
+#      print model
+#      print kv.parameters
 
-      kv = GPy.kern.RBF(input_dim=3,ARD=True) #+ GPy.kern.RBF(input_dim=3,ARD=True)
+      kv = GPy.kern.RBF(input_dim=3,ARD=True) + GPy.kern.RBF(input_dim=3,ARD=True)
       model = GPy.models.GPRegression(X,uo,kv)
       model.optimize_restarts(messages=False,num_restarts=num_restarts)
-      print model
-      print kv.parameters
+      hypu = model.param_array
+#      print model
+#      print kv.parameters
 
    else:
-      noise = kernels.WhiteKernel(noise_level=0.001, noise_level_bounds=(1e-06, 1.0))
+      
+      noise = kernels.WhiteKernel(noise_level=0.0001) #, noise_level_bounds=(1e-06, 1.0))
       kv = kernels.RBF(length_scale=priors) #,length_scale_bounds=bounds)
-      k = kernels.Sum(kv,noise)
-      model_v = GaussianProcessRegressor(kernel=k,n_restarts_optimizer=num_restarts)
-      model_v.fit(X,vo)
-      print model_v.kernel_
-      del model_v,kv,k
+      k = kv + kv + noise #kernels.Sum(kv,noise)
+      model = GaussianProcessRegressor(kernel=k,n_restarts_optimizer=num_restarts)
+      model.fit(X,vo)
+      hypv = np.zeros(8)
+      hypv[1:4] = model.kernel_.k1.k1.length_scale
+      hypv[5:8] = model.kernel_.k1.k2.length_scale
+      hypv[-1] = model.kernel_.k2.noise_level
+#      print model_v.kernel_
+      del model,kv,k
       print gc.collect(2)
 
       ku = kernels.RBF(length_scale=priors) # ,length_scale_bounds=bounds)
-      k = kernels.Sum(ku,noise)
-      model_u = GaussianProcessRegressor(kernel=k,n_restarts_optimizer=num_restarts)
-      model_u.fit(X,uo)
-      print model_u.kernel_
+      k = ku + ku + noise #kernels.Sum(ku,noise)
+      model = GaussianProcessRegressor(kernel=k,n_restarts_optimizer=num_restarts)
+      model.fit(X,uo)
+      hypu = np.zeros(9)
+      hypu[1:4] = model.kernel_.k1.k1.length_scale
+      hypu[5:8] = model.kernel_.k1.k2.length_scale
+      hypu[-1] = model.kernel_.k2.noise_level
 
-#   model.pickle(output_obj_v)
-#   del model,kv
-#   print gc.collect(2)
 
-## Compute U
-#   ku =  GPy.kern.RBF(input_dim=3,ARD=True) + GPy.kern.RBF(input_dim=3,ARD=True) #k.copy()
-#   model = GPy.models.GPRegression(X,uo,ku)
-#   model.optimize_restarts(messages=False,num_restarts=num_restarts)
-#   model.pickle(output_obj_u)
-#   print model
-#   print ku.parameters
-#   sio.savemat(output_mat,{'Xo':X,'obs':obs,'Xt':Xt,'test_points':obst})
+   print 'Optimized Hyperparameters ================================================='
+   nKernels = 2
+   for i in range(nKernels):
+       print 'Var.' + str(i+1) + ' (u,v) = ' + str(hypu[4*i])   + ' , ' + str(hypv[4*i])
+       print 'Lt ' + str(i+1) + '  (u,v) = ' + str(hypu[4*i+1]) + ' , ' + str(hypv[4*i+1])
+       print 'Ly ' + str(i+1) + '  (u,v) = ' + str(hypu[4*i+2]) + ' , ' + str(hypv[4*i+2])
+       print 'Lx ' + str(i+1) + '  (u,v) = ' + str(hypu[4*i+3]) + ' , ' + str(hypv[4*i+3])
+
+#   print 'Var. (u,v) = ' + str(hypu[0])   + ' , ' + str(hypv[0])
+#   print 'Lt   (u,v) = ' + str(hypu[1]) + ' , ' + str(hypv[1])
+#   print 'Ly   (u,v) = ' + str(hypu[2]) + ' , ' + str(hypv[2])
+#   print 'Lx   (u,v) = ' + str(hypu[3]) + ' , ' + str(hypv[3])
+   print 'Noise (u,v) = ' + str(hypu[-1]) + ' , ' + str(hypv[-1])
+   print '==========================================================================='
    print 'End of script, time : ' + str(datetime.now()-startTime)
 #   print gc.collect(2)
 
 mem_usage = mprof.memory_usage(kriging, timeout=60, interval=0.2)
-print mem_usage
-print np.max(mem_usage)
+#print mem_usage
+print 'Mean of memory usage  : ' + str(np.mean(mem_usage))
+print 'Median of memory usage: ' + str(np.median(mem_usage))
+print 'Std. of memory usage  : ' + str(np.std(mem_usage))
+print 'Max. memory used      : ' + str(np.max(mem_usage))
 

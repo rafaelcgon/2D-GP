@@ -10,7 +10,6 @@ from GPy.core import Param
 import numpy as np
 
 class myKernel(Kern):
-
     def __init__(self,input_dim,active_dim=[0,1],l_df=1.,l_cf=1,ratio=1.):
         super(myKernel, self).__init__(input_dim,active_dim, 'myKern')
         assert input_dim == 2, "For this kernel we assume input_dim=2"
@@ -145,10 +144,8 @@ class myKernel(Kern):
     def gradients_X_diag(self,dL_dKdiag,X):
         # no diagonal gradients
         pass
-
-
+############################################################################################
 class nonDivK(Kern):
-
     def __init__(self,input_dim,active_dim=[0,1],length=1.):
         super(nonDivK, self).__init__(input_dim,active_dim, 'nonDivK')
         assert input_dim == 2, "For this kernel we assume input_dim=2"
@@ -243,9 +240,8 @@ class nonDivK(Kern):
     def gradients_X_diag(self,dL_dKdiag,X):
         # no diagonal gradients
         pass
-
+######################################################################################
 class nonRotK(Kern):
-
     def __init__(self,input_dim,active_dim=[0,1],l=1.):
         super(nonRotK, self).__init__(input_dim,active_dim, 'nonRotK')
         assert input_dim == 2, "For this kernel we assume input_dim=2"
@@ -338,9 +334,7 @@ class nonRotK(Kern):
         pass
 
 #######################
-
 class Kt(Kern):
-
     def __init__(self,input_dim=1,active_dims=[0],var=1,lengthscale=1.):
         super(Kt, self).__init__(input_dim,active_dims, 'Kt')
         assert input_dim == 1, "For this kernel we assume input_dim=1"

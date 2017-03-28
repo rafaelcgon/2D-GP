@@ -11,6 +11,15 @@ import GPy
 #from joblib import Parallel, delayed  
 #import multiprocessing
 ################################################################
+def saveDict(obj, filename):
+    if np.size(obj) == 1:
+       with open(filename, 'wb') as output:
+           pickle.dump(obj, output)
+    else:
+       with open(filename, 'wb') as output:
+           for i in range(np.size(obj)):
+               pickle.dump(obj[i], output)
+################################################################
 def save_object(obj, filename):
     if np.size(obj) == 1:
        with open(filename, 'wb') as output:
@@ -94,7 +103,7 @@ def readFilteredTracks(initdate = datetime(2016,02,07,0,0,0)): # laser_io_method
 # ID  Date Time   Latitude  Longitude  Pos Error  U (+E-W) V (+N-S) vel Error
 # L_0004 2016-01-21 18:45:00.216001  29.03776831107 -87.68717800671    10.9 0.016 0.389 0.033
     
-    output = 'Filtered'+'_'+str(initdate.year)+'_'+str(initdate.month)+'_'+str(initdate.day)+'.pkl'
+    output = 'Filtered'+'_'+str(initdate.year)+'_'+str(initdate.month)+'_'+str(initdate.day)+'test.pkl'
     f = open('/home/rgoncalves/LagOil/LASER/Filtered_data/carthe_laser_spot_drifters_clean_v01.dat')
 #    f = open('carthe_laser_spot_drifters_clean_v01.dat')
     Lines = f.readlines()
@@ -139,6 +148,12 @@ def readFilteredTracks(initdate = datetime(2016,02,07,0,0,0)): # laser_io_method
               dr_id = values[0]
               dr_datetime.append(drdate)
               dr_time.append((drdate-initdate).total_seconds())
+              print '------------------------------------------'
+              print initdate
+              print line
+              print drdate
+              print (drdate-initdate).total_seconds()
+              print '------------------------------------------'
               dr_lat.append(np.float(values[3]))
               dr_lon.append(np.float(values[4]))
               dr_posErr.append(np.float(values[5]))
